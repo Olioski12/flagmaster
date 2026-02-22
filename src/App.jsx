@@ -625,7 +625,7 @@ function GameShell({ children, hud, progress, onExit }) {
         <button onClick={onExit} style={S.backBtn}>← Back</button>
         {hud}
       </div>
-      <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 4, marginBottom: 24 }}>
+      <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 4, marginBottom: 24, overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${Math.min(100, progress * 100)}%`, background: "linear-gradient(90deg,#6366f1,#a78bfa)", borderRadius: 4, transition: "width 0.3s" }} />
       </div>
       {children}
@@ -633,16 +633,50 @@ function GameShell({ children, hud, progress, onExit }) {
   );
 }
 
-function GameResult({ icon, title, subtitle, xp, onComplete }) {
+function GameResult({ icon, title, subtitle, xp, onComplete, review = [] }) {
+  // review = [{ question, yourAnswer, correctAnswer, correct }]
   return (
-    <div style={{ ...S.gameWrap, justifyContent: "center" }}>
-      <div style={{ textAlign: "center", padding: 32 }}>
-        <div style={{ fontSize: 72, marginBottom: 8 }}>{icon}</div>
-        <h2 style={{ color: "#fff", fontSize: 30, fontWeight: 900, margin: "0 0 6px" }}>{title}</h2>
-        {subtitle && <p style={{ color: "#94a3b8", marginBottom: 4 }}>{subtitle}</p>}
-        <p style={{ color: "#fbbf24", fontWeight: 700, fontSize: 18, margin: "12px 0 28px" }}>+{xp} XP earned</p>
-        <button style={S.primaryBtn} onClick={onComplete}>Continue</button>
+    <div style={{ ...S.gameWrap, paddingBottom: 60 }}>
+      <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
+        <div style={{ fontSize: 64, marginBottom: 6 }}>{icon}</div>
+        <h2 style={{ color: "#fff", fontSize: 26, fontWeight: 900, margin: "0 0 4px" }}>{title}</h2>
+        {subtitle && <p style={{ color: "#94a3b8", marginBottom: 4, fontSize: 13 }}>{subtitle}</p>}
+        <p style={{ color: "#fbbf24", fontWeight: 700, fontSize: 16, margin: "8px 0 0" }}>+{xp} XP earned</p>
       </div>
+
+      {review.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 2, margin: "0 0 10px" }}>ROUND REVIEW</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {review.map((r, i) => (
+              <div key={i} style={{
+                display: "grid", gridTemplateColumns: "20px 1fr 1fr",
+                gap: 8, alignItems: "center",
+                background: r.correct ? "rgba(52,211,153,0.06)" : "rgba(239,68,68,0.06)",
+                border: `1px solid ${r.correct ? "rgba(52,211,153,0.18)" : "rgba(239,68,68,0.18)"}`,
+                borderRadius: 10, padding: "8px 12px",
+              }}>
+                <span style={{ fontSize: 13 }}>{r.correct ? "✓" : "✗"}</span>
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 10, marginBottom: 1 }}>Q{i+1}</div>
+                  <div style={{ color: "#e2e8f0", fontSize: 12, fontWeight: 600 }}>{r.question}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {r.correct ? (
+                    <div style={{ color: "#34d399", fontSize: 12, fontWeight: 600 }}>{r.correctAnswer}</div>
+                  ) : (
+                    <>
+                      <div style={{ color: "#ef4444", fontSize: 11, textDecoration: "line-through", opacity: 0.7 }}>{r.yourAnswer || "—"}</div>
+                      <div style={{ color: "#34d399", fontSize: 12, fontWeight: 600 }}>{r.correctAnswer}</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <button style={{ ...S.primaryBtn, width: "100%" }} onClick={onComplete}>Continue</button>
     </div>
   );
 }
@@ -844,6 +878,7 @@ function SoloMCGame({ onExit, onComplete }) {
   const [done, setDone] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   useEffect(() => {
     const q = questions[current];
@@ -859,6 +894,7 @@ function SoloMCGame({ onExit, onComplete }) {
     const q = questions[current];
     const correct = opt.code === q.code;
     kuRef.push({ category: "flags", id: q.code, wasCorrect: correct, confusedWithId: correct ? null : opt.code });
+    reviewRef.push({ question: q.name, yourAnswer: opt.name, correctAnswer: q.name, correct });
     if (correct) { setScore(s => s + 1); setStreak(s => s + 1); }
     else setStreak(0);
     setTimeout(() => {
@@ -870,7 +906,7 @@ function SoloMCGame({ onExit, onComplete }) {
   if (done) {
     const xp = score * 12 + (score === TOTAL ? 60 : 0);
     return <GameResult icon={score >= 8 ? "🎉" : score >= 5 ? "👍" : "😬"}
-      title={`${score}/${TOTAL} Correct`} xp={xp}
+      title={`${score}/${TOTAL} Correct`} xp={xp} review={reviewRef}
       onComplete={() => onComplete({ xp, correct: score, total: TOTAL, knowledgeUpdates: kuRef })} />;
   }
 
@@ -913,6 +949,8 @@ function SoloTypingGame({ onExit, onComplete }) {
   const [times, setTimes] = useState([]);
   const [startTime, setStartTime] = useState(Date.now());
   const inputRef = useRef(null);
+  const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   useEffect(() => {
     setStartTime(Date.now());
@@ -927,6 +965,8 @@ function SoloTypingGame({ onExit, onComplete }) {
     const correct = !isSkip && isCorrectTyping(input, q.name);
     setStatus(correct ? "correct" : "wrong");
     setTimes(t => [...t, (Date.now() - startTime) / 1000]);
+    kuRef.push({ category: "flags", id: q.code, wasCorrect: correct, confusedWithId: null });
+    reviewRef.push({ question: `Flag of ${q.name}`, yourAnswer: isSkip ? "(skipped)" : input, correctAnswer: q.name, correct });
     if (correct) { setScore(s => s + 1); setStreak(s => s + 1); }
     else setStreak(0);
     setTimeout(() => {
@@ -939,8 +979,8 @@ function SoloTypingGame({ onExit, onComplete }) {
     const avg = times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—";
     const xp = score * 18 + (score === TOTAL ? 80 : 0);
     return <GameResult icon={score >= 8 ? "⌨️" : "📝"} title={`${score}/${TOTAL} Correct`}
-      subtitle={`Avg. time: ${avg}s`} xp={xp}
-      onComplete={() => onComplete({ xp, correct: score, total: TOTAL })} />;
+      subtitle={`Avg. time: ${avg}s`} xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: score, total: TOTAL, knowledgeUpdates: kuRef })} />;
   }
 
   const q = questions[current];
@@ -991,17 +1031,21 @@ function FlashcardGame({ onExit, onComplete }) {
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState(0);
   const [learning, setLearning] = useState(0);
+  const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   if (idx >= deck.length) {
     const xp = known * 5;
     return <GameResult icon="📚" title="Deck Complete!"
       subtitle={`✅ ${known} Known · 🔄 ${learning} Still Learning`}
-      xp={xp}
-      onComplete={() => onComplete({ xp, correct: known, total: deck.length })} />;
+      xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: known, total: deck.length, knowledgeUpdates: kuRef })} />;
   }
 
   const card = deck[idx];
   const next = (wasKnown) => {
+    kuRef.push({ category: "flags", id: card.code, wasCorrect: wasKnown, confusedWithId: null });
+    reviewRef.push({ question: card.name, yourAnswer: wasKnown ? "Got it" : "Still learning", correctAnswer: card.name, correct: wasKnown });
     if (wasKnown) setKnown(k => k + 1); else setLearning(l => l + 1);
     setFlipped(false);
     setIdx(i => i + 1);
@@ -1053,6 +1097,8 @@ function SpeedRound({ onExit, onComplete }) {
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [done, setDone] = useState(false);
+  const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   useEffect(() => {
     const q = questions[current % questions.length];
@@ -1071,8 +1117,8 @@ function SpeedRound({ onExit, onComplete }) {
 
   if (done) {
     const xp = score * 7;
-    return <GameResult icon="⚡" title={`${score} Correct!`} subtitle="Speed Round complete" xp={xp}
-      onComplete={() => onComplete({ xp, correct: score, total: current })} />;
+    return <GameResult icon="⚡" title={`${score} Correct!`} subtitle="Speed Round complete" xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: score, total: current, knowledgeUpdates: kuRef })} />;
   }
 
   const q = questions[current % questions.length];
@@ -1088,7 +1134,10 @@ function SpeedRound({ onExit, onComplete }) {
         <div style={S.grid2}>
           {options.map(opt => (
             <button key={opt.code + current} onClick={() => {
-              if (opt.code === q.code) setScore(s => s + 1);
+              const correct = opt.code === q.code;
+              kuRef.push({ category: "flags", id: q.code, wasCorrect: correct, confusedWithId: correct ? null : opt.code });
+              reviewRef.push({ question: q.name, yourAnswer: opt.name, correctAnswer: q.name, correct });
+              if (correct) setScore(s => s + 1);
               setCurrent(c => c + 1);
             }} style={{ ...S.option, justifyContent: "center" }}>
               <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 14 }}>{opt.name}</span>
@@ -1361,6 +1410,8 @@ function CapitalsMCGame({ onExit, onComplete }) {
   const [done, setDone] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const [mode, setMode] = useState("country"); // "country" = show country, guess capital
+  const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   useEffect(() => {
     const q = questions[current];
@@ -1372,8 +1423,11 @@ function CapitalsMCGame({ onExit, onComplete }) {
 
   const choose = (opt) => {
     if (selected) return;
+    const q = questions[current];
     setSelected(opt.capital);
-    const correct = opt.capital === questions[current].capital;
+    const correct = opt.capital === q.capital;
+    kuRef.push({ category: "capitals", id: q.country, wasCorrect: correct, confusedWithId: correct ? null : opt.country });
+    reviewRef.push({ question: q.country, yourAnswer: opt.capital, correctAnswer: q.capital, correct });
     if (correct) { setScore(s => s + 1); setStreak(s => s + 1); }
     else setStreak(0);
     setTimeout(() => {
@@ -1385,8 +1439,8 @@ function CapitalsMCGame({ onExit, onComplete }) {
   if (done) {
     const xp = score * 14 + (score === TOTAL ? 70 : 0);
     return <GameResult icon={score >= 8 ? "🎉" : score >= 5 ? "🗺️" : "😬"}
-      title={`${score}/${TOTAL} Correct`} xp={xp}
-      onComplete={() => onComplete({ xp, correct: score, total: TOTAL })} />;
+      title={`${score}/${TOTAL} Correct`} xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: score, total: TOTAL, knowledgeUpdates: kuRef })} />;
   }
 
   const q = questions[current];
@@ -1432,6 +1486,8 @@ function CapitalsTypingGame({ onExit, onComplete }) {
   const [times, setTimes] = useState([]);
   const [startTime, setStartTime] = useState(Date.now());
   const inputRef = useRef(null);
+  const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
 
   useEffect(() => {
     setStartTime(Date.now());
@@ -1446,6 +1502,8 @@ function CapitalsTypingGame({ onExit, onComplete }) {
     const correct = !isSkip && isCorrectTyping(input, q.capital);
     setStatus(correct ? "correct" : "wrong");
     setTimes(t => [...t, (Date.now() - startTime) / 1000]);
+    kuRef.push({ category: "capitals", id: q.country, wasCorrect: correct, confusedWithId: null });
+    reviewRef.push({ question: q.country, yourAnswer: isSkip ? "(skipped)" : input, correctAnswer: q.capital, correct });
     if (correct) { setScore(s => s + 1); setStreak(s => s + 1); }
     else setStreak(0);
     setTimeout(() => {
@@ -1458,8 +1516,8 @@ function CapitalsTypingGame({ onExit, onComplete }) {
     const avg = times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—";
     const xp = score * 20 + (score === TOTAL ? 90 : 0);
     return <GameResult icon={score >= 8 ? "✏️" : "📝"} title={`${score}/${TOTAL} Correct`}
-      subtitle={`Avg. time: ${avg}s`} xp={xp}
-      onComplete={() => onComplete({ xp, correct: score, total: TOTAL })} />;
+      subtitle={`Avg. time: ${avg}s`} xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: score, total: TOTAL, knowledgeUpdates: kuRef })} />;
   }
 
   const q = questions[current];
@@ -1542,10 +1600,13 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
   const getKey = category === "flags" ? (f) => f.code : (c) => c.country;
   const getLabel = category === "flags" ? (f) => f.name : (c) => c.capital;
   const getSubLabel = category === "flags" ? (f) => f.region : (c) => c.country;
-  const TOTAL = 12;
+
+  // Question count selector: null = picking, number = chosen
+  const [questionCount, setQuestionCount] = useState(null);
 
   const [queue] = useState(() => {
-    const q = buildPracticeQueue(items, knowledge, getKey, TOTAL);
+    // Build a large pool; user picks how many to do
+    const q = buildPracticeQueue(items, knowledge, getKey, items.length);
     return q.map(({ item }) => item);
   });
   const [current, setCurrent] = useState(0);
@@ -1554,12 +1615,20 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
   const [score, setScore] = useState(0);
   const [animKey, setAnimKey] = useState(0);
   const [kuRef] = useState([]);
+  const [reviewRef] = useState([]);
+
+  // Early exit — save whatever has been answered so far
+  const saveAndExit = () => {
+    const doneCount = current;
+    const xp = score * 8;
+    onComplete({ xp, correct: score, total: doneCount, knowledgeUpdates: kuRef, review: reviewRef, earlyExit: true });
+  };
 
   useEffect(() => {
+    if (!questionCount) return;
     const q = queue[current];
     if (!q) return;
     const correctKey = getKey(q);
-    // Include known confusers as distractors if any
     const kData = knowledge[correctKey];
     const topConfusers = kData
       ? Object.entries(kData.confusedWith || {}).sort((a,b) => b[1]-a[1]).slice(0,2).map(([id]) => id)
@@ -1571,7 +1640,7 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
     setOptions(shuffle([q, ...confuserItems, ...filler]));
     setSelected(null);
     setAnimKey(k => k + 1);
-  }, [current]);
+  }, [current, questionCount]);
 
   const choose = (opt) => {
     if (selected) return;
@@ -1579,36 +1648,64 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
     const correct = getKey(opt) === getKey(q);
     setSelected(getKey(opt));
     kuRef.push({ category, id: getKey(q), wasCorrect: correct, confusedWithId: correct ? null : getKey(opt) });
+    reviewRef.push({ question: getLabel(q), yourAnswer: getLabel(opt), correctAnswer: getLabel(q), correct });
     if (correct) setScore(s => s + 1);
     setTimeout(() => {
-      if (current + 1 >= queue.length) {
-        const xp = score * 8 + (correct ? 8 : 0);
-        onComplete({ xp, correct: score + (correct ? 1 : 0), total: queue.length, knowledgeUpdates: kuRef });
+      const isLast = current + 1 >= Math.min(questionCount, queue.length);
+      if (isLast) {
+        const finalScore = score + (correct ? 1 : 0);
+        const xp = finalScore * 8;
+        onComplete({ xp, correct: finalScore, total: Math.min(questionCount, queue.length), knowledgeUpdates: kuRef, review: [...reviewRef] });
       } else {
         setCurrent(c => c + 1);
       }
     }, 900);
   };
 
-  if (!queue.length) return (
-    <div style={{ ...S.gameWrap, justifyContent: "center", textAlign: "center", padding: 40 }}>
-      <div style={{ fontSize: 64 }}>🎉</div>
-      <h2 style={{ color: "#fff", fontSize: 24, fontWeight: 800 }}>Nothing to practice!</h2>
-      <p style={{ color: "#64748b" }}>Play some games first to build your knowledge profile.</p>
-      <button style={{ ...S.primaryBtn, marginTop: 20 }} onClick={onExit}>Back</button>
-    </div>
-  );
+  // ── Question count picker ──
+  if (!questionCount) {
+    if (!queue.length) return (
+      <div style={{ ...S.gameWrap, justifyContent: "center", textAlign: "center", padding: 40 }}>
+        <div style={{ fontSize: 64 }}>🎉</div>
+        <h2 style={{ color: "#fff", fontSize: 24, fontWeight: 800 }}>Nothing to practice!</h2>
+        <p style={{ color: "#64748b" }}>Play some games first to build your knowledge profile.</p>
+        <button style={{ ...S.primaryBtn, marginTop: 20 }} onClick={onExit}>Back</button>
+      </div>
+    );
+    return (
+      <div style={{ ...S.gameWrap, paddingTop: 40 }}>
+        <button onClick={onExit} style={{ ...S.backBtn, marginBottom: 24 }}>← Back</button>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>{category === "flags" ? "🌍" : "🗺️"}</div>
+          <h2 style={{ color: "#fff", fontSize: 22, fontWeight: 900, margin: "0 0 6px" }}>Adaptive Practice</h2>
+          <p style={{ color: "#64748b", fontSize: 13 }}>Questions ordered by what you need most</p>
+        </div>
+        <h3 style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>HOW MANY QUESTIONS?</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          {[10, 20, 30, 50].map(n => (
+            <button key={n} onClick={() => setQuestionCount(Math.min(n, queue.length))} style={{
+              ...S.primaryBtn, background: "rgba(99,102,241,0.15)",
+              border: "1px solid rgba(99,102,241,0.3)", color: "#a78bfa", fontSize: 16, fontWeight: 800,
+            }}>{n} questions</button>
+          ))}
+        </div>
+        <button onClick={() => setQuestionCount(queue.length)} style={{
+          ...S.primaryBtn, width: "100%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+        }}>All {queue.length} ({category === "flags" ? "flags" : "capitals"}) 🔥</button>
+      </div>
+    );
+  }
 
   const q = queue[current];
   if (!q) return null;
   const correctKey = getKey(q);
-  const progress = current / queue.length;
+  const progress = current / Math.min(questionCount, queue.length);
 
   return (
     <GameShell hud={<>
       <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: 13 }}>Practice</div>
-      <div style={S.stat}>{current + 1}/{queue.length}</div>
-    </>} progress={progress} onExit={onExit}>
+      <div style={S.stat}>{current + 1}/{Math.min(questionCount, queue.length)}</div>
+    </>} progress={progress} onExit={saveAndExit}>
       <div key={animKey} style={{ animation: "slideIn 0.25s ease", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
         {category === "flags"
           ? <FlagImg code={q.code} size={240} />
@@ -1640,13 +1737,28 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
 
 // ─── LEARN PAGE ───────────────────────────────────────────────────────────────
 function LearnPage({ profile, onGameComplete }) {
-  const [view, setView] = useState("browse");       // "browse" | "practice"
+  const [view, setView] = useState("browse");       // "browse" | "practice" | "review"
   const [practiceCategory, setPracticeCategory] = useState("flags");
   const [learnCategory, setLearnCategory] = useState("flags");
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("All");
+  const [practiceResult, setPracticeResult] = useState(null);
 
   const knowledge = profile?.knowledge || { flags: {}, capitals: {} };
+
+  // ── Review view ──
+  if (view === "review" && practiceResult) {
+    return (
+      <GameResult
+        icon={practiceResult.earlyExit ? "⏸️" : practiceResult.correct >= practiceResult.total * 0.8 ? "🎉" : "📚"}
+        title={practiceResult.earlyExit ? `${practiceResult.correct}/${practiceResult.total} before exit` : `${practiceResult.correct}/${practiceResult.total} Correct`}
+        subtitle={practiceResult.earlyExit ? "Progress saved!" : undefined}
+        xp={practiceResult.xp}
+        review={practiceResult.review || []}
+        onComplete={() => { onGameComplete({ ...practiceResult, mode: "practice" }); setView("browse"); setPracticeResult(null); }}
+      />
+    );
+  }
 
   // ── Practice view ──
   if (view === "practice") {
@@ -1654,7 +1766,10 @@ function LearnPage({ profile, onGameComplete }) {
       <AdaptivePractice
         category={practiceCategory}
         knowledge={knowledge[practiceCategory] || {}}
-        onComplete={(result) => { onGameComplete({ ...result, mode: "practice" }); setView("browse"); }}
+        onComplete={(result) => {
+          setPracticeResult(result);
+          setView("review");
+        }}
         onExit={() => setView("browse")}
       />
     );
@@ -2391,7 +2506,7 @@ export default function App() {
 
         {/* XP progress bar */}
         {nextXP && (
-          <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 4, marginBottom: 16, overflow: "hidden" }}>
+          <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 4, marginBottom: 16, overflow: "hidden" }}>
             <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#6366f1,#a78bfa)", transition: "width 0.6s ease", width: `${Math.min(100, ((profile.xp - xpRank.minXP) / (nextXP.minXP - xpRank.minXP)) * 100)}%` }} />
           </div>
         )}
@@ -2464,7 +2579,7 @@ export default function App() {
             <GameModePicker onStart={startGame} />
           </div>
         )}
-        {tab === "learn"       && <LearnPage profile={profile} onGameComplete={(r) => { persistProfile({ ...profile, xp: (profile.xp||0) + (r.xp||0), knowledge: (() => { const kn = { ...(profile.knowledge || { flags:{}, capitals:{} }) }; for (const { category, id, wasCorrect, confusedWithId } of (r.knowledgeUpdates||[])) { if (!kn[category]) kn[category]={}; const k = kn[category][id]||{correct:0,wrong:0,lastSeen:0,confusedWith:{}}; if(wasCorrect) k.correct++; else k.wrong++; k.lastSeen=Date.now(); if(!wasCorrect&&confusedWithId) k.confusedWith[confusedWithId]=(k.confusedWith[confusedWithId]||0)+1; kn[category][id]=k; } return kn; })() }); }} />}
+        {tab === "learn"       && <LearnPage profile={profile} onGameComplete={handleGameComplete} />}
         {tab === "leaderboard" && <LeaderboardPage profile={profile} />}
         {tab === "profile"     && <ProfilePage profile={profile} onLogout={handleLogout} onReset={handleReset} onUpdateProfile={(p) => persistProfile(p)} />}
       </div>
