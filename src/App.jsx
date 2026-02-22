@@ -584,6 +584,27 @@ function FlagImg({ code, size = 200 }) {
   );
 }
 
+
+// ─── FLAG ICON (small inline use: leaderboard, profile header) ───────────────
+// Uses flagcdn.com just like FlagImg but sized for UI chrome (20-32px height)
+function FlagIcon({ code, height = 24 }) {
+  const [failed, setFailed] = useState(false);
+  const flag = FLAGS.find(f => f.code === code);
+  if (!code) return null;
+  if (failed) {
+    // emoji fallback
+    return <span style={{ fontSize: height * 0.9, lineHeight: 1 }}>{flag?.emoji ?? "🏳️"}</span>;
+  }
+  return (
+    <img
+      src={`https://flagcdn.com/h${Math.round(height * 2)}/${code.toLowerCase()}.png`}
+      alt={flag?.name ?? code}
+      onError={() => setFailed(true)}
+      style={{ height, width: "auto", borderRadius: 3, verticalAlign: "middle", display: "inline-block", border: "1px solid rgba(255,255,255,0.12)" }}
+    />
+  );
+}
+
 // ─── SHARED SUBCOMPONENTS ────────────────────────────────────────────────────
 function EloDisplay({ elo }) {
   const tier = getEloTier(elo);
@@ -769,7 +790,8 @@ function CountryPicker({ value, onChange }) {
 function Onboarding({ onDone }) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("😎");
-  const submit = () => { if (name.trim()) onDone(name.trim(), avatar); };
+  const [homeCountry, setHomeCountry] = useState(null);
+  const submit = () => { if (name.trim()) onDone(name.trim(), avatar, homeCountry); };
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#060a12", padding: 24 }}>
       <style>{`@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }`}</style>
@@ -778,20 +800,30 @@ function Onboarding({ onDone }) {
         <h1 style={{ ...S.logo, fontSize: 42, marginBottom: 8, display: "block" }}>FlagMaster</h1>
         <p style={{ color: "#475569", marginBottom: 40, fontSize: 15 }}>Know every flag on Earth</p>
         <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 32 }}>
-          <p style={{ color: "#94a3b8", marginBottom: 16, fontSize: 14 }}>Choose your avatar and username</p>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <p style={{ color: "#94a3b8", marginBottom: 16, fontSize: 14 }}>Set up your profile</p>
+
+          {/* Avatar row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, textAlign: "left" }}>
             <EmojiPicker value={avatar} onChange={setAvatar} />
+            <div style={{ flex: 1 }}>
+              <p style={{ color: "#475569", fontSize: 11, margin: "0 0 6px", fontWeight: 700, letterSpacing: 1 }}>USERNAME</p>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && submit()}
+                placeholder="Enter username..."
+                maxLength={20}
+                autoFocus
+                style={{ ...S.input, margin: 0 }}
+              />
+            </div>
           </div>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && submit()}
-            placeholder="Enter username..."
-            maxLength={20}
-            autoFocus
-            style={S.input}
-          />
-          <p style={{ color: "#334155", fontSize: 11, margin: "8px 0 20px" }}>You start at 1000 ELO · Bronze tier</p>
+
+          {/* Country picker */}
+          <p style={{ color: "#475569", fontSize: 11, margin: "0 0 6px", fontWeight: 700, letterSpacing: 1, textAlign: "left" }}>HOME COUNTRY <span style={{ color: "#334155", fontWeight: 400 }}>(optional)</span></p>
+          <CountryPicker value={homeCountry} onChange={setHomeCountry} />
+
+          <p style={{ color: "#334155", fontSize: 11, margin: "14px 0 16px" }}>You start at 1000 ELO · Bronze tier</p>
           <button onClick={submit} disabled={!name.trim()} style={{ ...S.primaryBtn, width: "100%", opacity: name.trim() ? 1 : 0.4 }}>
             Start Playing →
           </button>
@@ -1771,18 +1803,18 @@ function LearnPage({ profile, onGameComplete }) {
 function LeaderboardPage({ profile }) {
   const [tab, setTab] = useState("elo");
   const staticPlayers = [
-    { name: "flaglord99",    elo: 2240, xp: 4200, wins: 312, country: "🇺🇸" },
-    { name: "geoqueen",      elo: 2105, xp: 3800, wins: 278, country: "🇬🇧" },
-    { name: "atlas_nerd",    elo: 1942, xp: 3100, wins: 201, country: "🇩🇪" },
-    { name: "vexillophile",  elo: 1820, xp: 2900, wins: 167, country: "🇯🇵" },
-    { name: "mapmaster_k",   elo: 1744, xp: 2400, wins: 134, country: "🇧🇷" },
-    { name: "flagwatcher",   elo: 1680, xp: 2200, wins: 112, country: "🇫🇷" },
-    { name: "geo_storm",     elo: 1555, xp: 1900, wins:  88, country: "🇰🇷" },
-    { name: "worldrunner",   elo: 1420, xp: 1600, wins:  71, country: "🇮🇳" },
+    { name: "flaglord99",    elo: 2240, xp: 4200, wins: 312, countryCode: "US" },
+    { name: "geoqueen",      elo: 2105, xp: 3800, wins: 278, countryCode: "GB" },
+    { name: "atlas_nerd",    elo: 1942, xp: 3100, wins: 201, countryCode: "DE" },
+    { name: "vexillophile",  elo: 1820, xp: 2900, wins: 167, countryCode: "JP" },
+    { name: "mapmaster_k",   elo: 1744, xp: 2400, wins: 134, countryCode: "BR" },
+    { name: "flagwatcher",   elo: 1680, xp: 2200, wins: 112, countryCode: "FR" },
+    { name: "geo_storm",     elo: 1555, xp: 1900, wins:  88, countryCode: "KR" },
+    { name: "worldrunner",   elo: 1420, xp: 1600, wins:  71, countryCode: "IN" },
   ];
   const allPlayers = [
     ...staticPlayers,
-    { name: profile.username, elo: profile.elo, xp: profile.xp, wins: profile.wins, country: (() => { const c = FLAGS.find(f => f.code === profile.homeCountry); return c ? c.emoji : "🏠"; })(), isYou: true },
+    { name: profile.username, elo: profile.elo, xp: profile.xp, wins: profile.wins, countryCode: profile.homeCountry || null, isYou: true },
   ].sort((a, b) => tab === "elo" ? b.elo - a.elo : b.xp - a.xp);
 
   return (
@@ -1810,7 +1842,7 @@ function LeaderboardPage({ profile }) {
               <div style={{ width: 28, textAlign: "center", fontWeight: 900, color: i < 3 ? ["#fbbf24","#94a3b8","#cd7c3f"][i] : "#334155", fontSize: i < 3 ? 20 : 13 }}>
                 {i < 3 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}
               </div>
-              <div style={{ fontSize: 20 }}>{p.country}</div>
+              <div style={{ width: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>{p.countryCode ? <FlagIcon code={p.countryCode} height={18} /> : <span style={{ color: "#334155", fontSize: 16 }}>🏠</span>}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ color: p.isYou ? "#a78bfa" : "#e2e8f0", fontWeight: 700, fontSize: 14 }}>
                   {p.name}{p.isYou ? " (you)" : ""}
@@ -1859,7 +1891,7 @@ function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
         <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}><EmojiPicker value={profile.avatar || "😎"} onChange={(a) => onUpdateProfile({ ...profile, avatar: a })} /></div>
         <h2 style={{ color: "#fff", fontSize: 26, fontWeight: 900, margin: "0 0 2px", letterSpacing: -0.5 }}>{profile.username}</h2>
         <p style={{ color: "#475569", fontSize: 12, margin: "0 0 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-          {profile.homeCountry && (() => { const c = FLAGS.find(f => f.code === profile.homeCountry); return c ? <><span style={{ fontSize: 16 }}>{c.emoji}</span><span>{c.name}</span><span style={{ color: "#334155" }}>·</span></> : null; })()}
+          {profile.homeCountry && (() => { const c = FLAGS.find(f => f.code === profile.homeCountry); return c ? <><FlagIcon code={profile.homeCountry} height={18} /><span style={{ marginLeft: 4 }}>{c.name}</span><span style={{ color: "#334155" }}>·</span></> : null; })()}
           <span>{profile.gamesPlayed} games</span>
         </p>
 
@@ -2184,8 +2216,8 @@ export default function App() {
     setTimeout(() => setNotification(null), 2500);
   };
 
-  const handleOnboarding = (username, avatar = "😎") => {
-    const p = { ...DEFAULT_PROFILE, username, avatar };
+  const handleOnboarding = (username, avatar = "😎", homeCountry = null) => {
+    const p = { ...DEFAULT_PROFILE, username, avatar, homeCountry };
     persistProfile(p);
   };
 
