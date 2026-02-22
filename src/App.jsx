@@ -1678,20 +1678,40 @@ function AdaptivePractice({ category, knowledge, onComplete, onExit }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>{category === "flags" ? "🌍" : "🗺️"}</div>
           <h2 style={{ color: "#fff", fontSize: 22, fontWeight: 900, margin: "0 0 6px" }}>Adaptive Practice</h2>
-          <p style={{ color: "#64748b", fontSize: 13 }}>Questions ordered by what you need most</p>
+          <p style={{ color: "#64748b", fontSize: 13 }}>Questions ordered by what you need most · leave anytime to save progress</p>
         </div>
         <h3 style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>HOW MANY QUESTIONS?</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
           {[10, 20, 30, 50].map(n => (
             <button key={n} onClick={() => setQuestionCount(Math.min(n, queue.length))} style={{
               ...S.primaryBtn, background: "rgba(99,102,241,0.15)",
               border: "1px solid rgba(99,102,241,0.3)", color: "#a78bfa", fontSize: 16, fontWeight: 800,
-            }}>{n} questions</button>
+            }}>{n}</button>
           ))}
+        </div>
+        {/* Custom number input */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <input
+            type="number" min={1} max={queue.length}
+            placeholder={`Custom (max ${queue.length})`}
+            style={{ ...S.input, flex: 1, fontSize: 14 }}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                const v = Math.min(Math.max(1, parseInt(e.target.value) || 1), queue.length);
+                setQuestionCount(v);
+              }
+            }}
+            id="practiceCustomN"
+          />
+          <button onClick={() => {
+            const el = document.getElementById("practiceCustomN");
+            const v = Math.min(Math.max(1, parseInt(el?.value) || 1), queue.length);
+            setQuestionCount(v);
+          }} style={{ ...S.primaryBtn, padding: "0 18px", whiteSpace: "nowrap" }}>Go</button>
         </div>
         <button onClick={() => setQuestionCount(queue.length)} style={{
           ...S.primaryBtn, width: "100%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-        }}>All {queue.length} ({category === "flags" ? "flags" : "capitals"}) 🔥</button>
+        }}>All {queue.length} 🔥</button>
       </div>
     );
   }
