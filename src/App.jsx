@@ -726,7 +726,7 @@ function CountryPicker({ value, onChange }) {
         background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
         borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left",
       }}>
-        <span style={{ fontSize: 22 }}>{selected ? selected.emoji : "🌍"}</span>
+        <span style={{ display: "flex", alignItems: "center", width: 28, justifyContent: "center" }}>{selected ? <FlagIcon code={selected.code} height={18} /> : <span style={{ fontSize: 20 }}>🌍</span>}</span>
         <span style={{ color: selected ? "#e2e8f0" : "#475569", fontWeight: 600, fontSize: 14, flex: 1 }}>
           {selected ? selected.name : "Select your home country"}
         </span>
@@ -767,7 +767,7 @@ function CountryPicker({ value, onChange }) {
                 border: "none", padding: "9px 14px", cursor: "pointer",
                 borderLeft: f.code === value ? "2px solid #6366f1" : "2px solid transparent",
               }}>
-                <span style={{ fontSize: 20 }}>{f.emoji}</span>
+                <span style={{ display: "flex", alignItems: "center", width: 28, justifyContent: "center" }}><FlagIcon code={f.code} height={18} /></span>
                 <div style={{ flex: 1, textAlign: "left" }}>
                   <div style={{ color: f.code === value ? "#a78bfa" : "#e2e8f0", fontWeight: f.code === value ? 700 : 500, fontSize: 13 }}>{f.name}</div>
                   <div style={{ color: "#334155", fontSize: 10 }}>{f.region}</div>
