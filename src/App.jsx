@@ -592,12 +592,11 @@ function FlagIcon({ code, height = 24 }) {
   const flag = FLAGS.find(f => f.code === code);
   if (!code) return null;
   if (failed) {
-    // emoji fallback
     return <span style={{ fontSize: height * 0.9, lineHeight: 1 }}>{flag?.emoji ?? "🏳️"}</span>;
   }
   return (
     <img
-      src={`https://flagcdn.com/h${Math.round(height * 2)}/${code.toLowerCase()}.png`}
+      src={`https://flagcdn.com/w80/${code.toLowerCase()}.png`}
       alt={flag?.name ?? code}
       onError={() => setFailed(true)}
       style={{ height, width: "auto", borderRadius: 3, verticalAlign: "middle", display: "inline-block", border: "1px solid rgba(255,255,255,0.12)" }}
