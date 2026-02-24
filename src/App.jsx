@@ -410,15 +410,6 @@ const CAPITALS = [
   { country: "Vanuatu",                  capital: "Port Vila",                  emoji: "🇻🇺", region: "Oceania" },
 ];
 
-const ELO_TIERS = [
-  { name: "Bronze",      min: 0,    color: "#cd7c3f", icon: "🥉", gradient: "linear-gradient(135deg,#78350f,#cd7c3f)" },
-  { name: "Silver",      min: 1000, color: "#94a3b8", icon: "🥈", gradient: "linear-gradient(135deg,#475569,#94a3b8)" },
-  { name: "Gold",        min: 1200, color: "#fbbf24", icon: "🥇", gradient: "linear-gradient(135deg,#92400e,#fbbf24)" },
-  { name: "Platinum",    min: 1400, color: "#67e8f9", icon: "💎", gradient: "linear-gradient(135deg,#164e63,#67e8f9)" },
-  { name: "Diamond",     min: 1600, color: "#a78bfa", icon: "💠", gradient: "linear-gradient(135deg,#4c1d95,#a78bfa)" },
-  { name: "Master",      min: 1800, color: "#f472b6", icon: "🔮", gradient: "linear-gradient(135deg,#831843,#f472b6)" },
-  { name: "Grandmaster", min: 2000, color: "#fde68a", icon: "👑", gradient: "linear-gradient(135deg,#713f12,#fde68a)" },
-];
 
 const XP_RANKS = [
   { name: "Novice",       minXP: 0,    color: "#9ca3af", icon: "🌱" },
@@ -429,14 +420,6 @@ const XP_RANKS = [
   { name: "World Master", minXP: 3000, color: "#a855f7", icon: "👑" },
 ];
 
-const BOT_OPPONENTS = [
-  { name: "FlagBot Alpha", elo: 900,  avatar: "🤖", accuracy: 0.65, speed: 2200 },
-  { name: "MapQuizzer",    elo: 1100, avatar: "🗺️", accuracy: 0.75, speed: 1700 },
-  { name: "GeoGenius",     elo: 1300, avatar: "🌍", accuracy: 0.83, speed: 1300 },
-  { name: "AtlasHawk",     elo: 1500, avatar: "🦅", accuracy: 0.90, speed: 950  },
-  { name: "VexMaster",     elo: 1700, avatar: "🏆", accuracy: 0.95, speed: 650  },
-  { name: "OmniFlag",      elo: 2100, avatar: "👾", accuracy: 0.99, speed: 350  },
-];
 
 const GAME_MODES = [
   { id: "solo-mc",       label: "Flags Quiz",      sub: "See flag → name country",  icon: "🧠", color: "#6366f1", tag: "SOLO", category: "flags"    },
@@ -444,29 +427,19 @@ const GAME_MODES = [
   { id: "solo-type",     label: "Flags Typing",    sub: "Type the country",      icon: "⌨️", color: "#06b6d4", tag: "SOLO", category: "flags"    },
   { id: "flashcard",     label: "Flashcards",      sub: "Flip & learn",          icon: "📚", color: "#10b981", tag: "SOLO", category: "flags"    },
   { id: "speed",         label: "Speed Run",       sub: "30-second blitz",       icon: "⚡", color: "#f59e0b", tag: "SOLO", category: "flags"    },
-  { id: "pvp",           label: "1v1 Battle",      sub: "Challenge an opponent", icon: "⚔️", color: "#ef4444", tag: "PVP",  category: "flags"    },
   { id: "capitals-mc",   label: "Capitals Quiz",   sub: "Name the capital city", icon: "🗺️", color: "#8b5cf6", tag: "SOLO", category: "capitals" },
   { id: "capitals-type", label: "Capitals Typing", sub: "Type the capital",      icon: "✏️", color: "#a855f7", tag: "SOLO", category: "capitals" },
-  { id: "pvp-type",      label: "1v1 Typing",      sub: "First to type wins",    icon: "🔥", color: "#ec4899", tag: "SOON", category: "flags"    },
   { id: "tournament",    label: "Tournament",      sub: "8-player bracket",      icon: "🏆", color: "#64748b", tag: "SOON", category: "flags"    },
 ];
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
 
-function getEloTier(elo) {
-  return [...ELO_TIERS].reverse().find(t => elo >= t.min) || ELO_TIERS[0];
-}
 
 function getXPRank(xp) {
   return [...XP_RANKS].reverse().find(r => xp >= r.minXP) || XP_RANKS[0];
 }
 
-function calcEloChange(playerElo, opponentElo, won) {
-  const K = 32;
-  const expected = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
-  return Math.round(K * ((won ? 1 : 0) - expected));
-}
 
 function normalize(str) {
   return str.toLowerCase().trim().replace(/[^a-z]/g, "");
@@ -492,9 +465,7 @@ const DEFAULT_PROFILE = {
   avatar: "😎",
   homeCountry: null,  // country code e.g. "AU"
   xp: 0,
-  elo: 1000,
   gamesPlayed: 0,
-  wins: 0,
   totalCorrect: 0,
   totalAnswered: 0,
   streak: 0,
@@ -586,7 +557,7 @@ function FlagImg({ code, size = 200 }) {
 }
 
 
-// ─── FLAG ICON (small inline use: leaderboard, profile header) ───────────────
+// ─── FLAG ICON (small inline use: profile header, learn page) ──────────────────
 // Uses flagcdn.com just like FlagImg but sized for UI chrome (20-32px height)
 function FlagIcon({ code, height = 24 }) {
   const [failed, setFailed] = useState(false);
@@ -606,18 +577,6 @@ function FlagIcon({ code, height = 24 }) {
 }
 
 // ─── SHARED SUBCOMPONENTS ────────────────────────────────────────────────────
-function EloDisplay({ elo }) {
-  const tier = getEloTier(elo);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 18 }}>{tier.icon}</span>
-      <div>
-        <div style={{ color: tier.color, fontWeight: 800, fontSize: 13, letterSpacing: 1 }}>{tier.name}</div>
-        <div style={{ color: "#94a3b8", fontSize: 11 }}>{elo} ELO</div>
-      </div>
-    </div>
-  );
-}
 
 function GameShell({ children, hud, progress, onExit }) {
   return (
@@ -857,7 +816,7 @@ function Onboarding({ onDone }) {
           <p style={{ color: "#475569", fontSize: 11, margin: "0 0 6px", fontWeight: 700, letterSpacing: 1, textAlign: "left" }}>HOME COUNTRY <span style={{ color: "#334155", fontWeight: 400 }}>(optional)</span></p>
           <CountryPicker value={homeCountry} onChange={setHomeCountry} />
 
-          <p style={{ color: "#334155", fontSize: 11, margin: "14px 0 16px" }}>You start at 1000 ELO · Bronze tier</p>
+          <p style={{ color: "#334155", fontSize: 11, margin: "14px 0 16px" }}>Start your journey 🌍</p>
           <button onClick={submit} disabled={!name.trim()} style={{ ...S.primaryBtn, width: "100%", opacity: name.trim() ? 1 : 0.4 }}>
             Start Playing →
           </button>
@@ -1237,435 +1196,6 @@ function SpeedRound({ onExit, onComplete }) {
   );
 }
 
-// ─── PVP GAME ─────────────────────────────────────────────────────────────────
-function PvPGame({ onExit, onComplete, profile }) {
-  const ROUNDS      = 7;
-  const Q_TIME      = 8;   // seconds per question
-  const FIRST_PTS   = 2;   // points for answering first and correctly
-  const SECOND_PTS  = 1;   // points for answering second but still correctly
-  const TIMEOUT_PTS = 0;   // points if time runs out
-
-  const [phase, setPhase]             = useState("lobby");
-  const [bot, setBot]                 = useState(null);
-  const [questions]                   = useState(() => shuffle(FLAGS).slice(0, ROUNDS));
-  const [current, setCurrent]         = useState(0);
-  const [options, setOptions]         = useState([]);
-  const [playerScore, setPlayerScore] = useState(0);
-  const [botScore, setBotScore]       = useState(0);
-
-  // Per-round state
-  const [playerPick, setPlayerPick]   = useState(null);
-  const [botPick, setBotPick]         = useState(null);
-  const [botLocked, setBotLocked]     = useState(false);
-  const [roundResult, setRoundResult] = useState(null);
-  const [timeLeft, setTimeLeft]       = useState(Q_TIME);
-  const [roundScores, setRoundScores] = useState([]);
-
-  const [countdown, setCountdown]     = useState(3);
-  const [animKey, setAnimKey]         = useState(0);
-  const [eloChange, setEloChange]     = useState(null);
-
-  const botTimerRef      = useRef(null);
-  const questionTimerRef = useRef(null);
-  // Refs for synchronous reads inside timers — avoids stale closures & double-resolves
-  const phaseRef      = useRef(phase);
-  const resolvedRef   = useRef(false);  // true once resolveRound has fired for this round
-  const playerPickRef = useRef(null);
-  const botPickRef    = useRef(null);
-  phaseRef.current = phase;
-
-  const matchedBot = useCallback(() => {
-    const candidates = BOT_OPPONENTS.filter(b => Math.abs(b.elo - profile.elo) < 600);
-    return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : BOT_OPPONENTS[1];
-  }, [profile.elo]);
-
-  const startMatch = () => {
-    const b = matchedBot();
-    setBot(b);
-    setPhase("countdown");
-    let c = 3;
-    const t = setInterval(() => {
-      c--;
-      setCountdown(c);
-      if (c <= 0) { clearInterval(t); setPhase("playing"); }
-    }, 1000);
-  };
-
-  // ── Resolve round: who answered first? ──
-  const resolveRound = useCallback((pPick, bPick, correctCode, pFirst) => {
-    if (resolvedRef.current) return;  // guard against double-fire
-    resolvedRef.current = true;
-    const pCorrect = pPick === correctCode;
-    const bCorrect = bPick === correctCode;
-
-    let playerPts = 0, botPts = 0, winner = "nobody";
-
-    if (pPick === null && bPick === null) {
-      // timeout — nobody answered
-      winner = "timeout";
-    } else if (pFirst === true) {
-      // Player answered first
-      if (pCorrect) {
-        playerPts = FIRST_PTS;                          // first & correct → 2
-        botPts    = bCorrect ? SECOND_PTS : 0;          // bot second & correct → 1, wrong → 0
-        winner    = "player";
-      } else {
-        // Player was first but wrong
-        botPts = bCorrect ? FIRST_PTS : 0;              // bot correct after wrong first → 2 (no penalty for being second if first was wrong)
-        winner = bCorrect ? "bot" : "nobody";
-      }
-    } else if (pFirst === false) {
-      // Bot answered first
-      if (bCorrect) {
-        botPts    = FIRST_PTS;                          // first & correct → 2
-        playerPts = pCorrect ? SECOND_PTS : 0;          // player second & correct → 1, wrong → 0
-        winner    = "bot";
-      } else {
-        // Bot was first but wrong
-        playerPts = pCorrect ? FIRST_PTS : 0;           // player correct after wrong first → 2
-        winner    = pCorrect ? "player" : "nobody";
-      }
-    } else {
-      // Both timed out or simultaneous
-      if (pCorrect) playerPts = FIRST_PTS;
-      if (bCorrect) botPts = FIRST_PTS;
-      winner = pCorrect && !bCorrect ? "player" : bCorrect && !pCorrect ? "bot" : pCorrect && bCorrect ? "tie" : "nobody";
-    }
-
-    setPlayerScore(s => s + playerPts);
-    setBotScore(s => s + botPts);
-    setRoundResult({ winner, playerPts, botPts, correct: correctCode, pFirst });
-    setRoundScores(rs => [...rs, { winner, playerPts, botPts }]);
-    setPhase("roundResult");
-
-    // Advance after showing result
-    setTimeout(() => {
-      if (current + 1 >= ROUNDS) { setPhase("done"); }
-      else {
-        setCurrent(c => c + 1);
-        setPhase("playing");
-      }
-    }, 1800);
-  }, [current]);
-
-  // ── Question timer + bot scheduling ──
-  useEffect(() => {
-    if (phase !== "playing" || !bot) return;
-    const q = questions[current];
-    const wrong = shuffle(FLAGS.filter(f => f.code !== q.code)).slice(0, 3);
-    setOptions(shuffle([q, ...wrong]));
-    // Reset all per-round state synchronously via refs AND React state
-    resolvedRef.current   = false;
-    playerPickRef.current = null;
-    botPickRef.current    = null;
-    setPlayerPick(null);
-    setBotPick(null);
-    setBotLocked(false);
-    setRoundResult(null);
-    setTimeLeft(Q_TIME);
-    setAnimKey(k => k + 1);
-
-    // Question countdown timer
-    let tl = Q_TIME;
-    questionTimerRef.current = setInterval(() => {
-      tl--;
-      setTimeLeft(tl);
-      if (tl <= 0) {
-        clearInterval(questionTimerRef.current);
-        clearTimeout(botTimerRef.current);
-        if (phaseRef.current === "playing") {
-          resolveRound(playerPickRef.current, botPickRef.current, q.code, null);
-        }
-      }
-    }, 1000);
-
-    // Bot answer — scheduled based on bot speed
-    const botCorrect = Math.random() < bot.accuracy;
-    const botAnswer  = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
-    const delay      = Math.min(bot.speed + (Math.random() - 0.5) * 600, (Q_TIME - 0.5) * 1000);
-
-    botTimerRef.current = setTimeout(() => {
-      if (phaseRef.current !== "playing") return;
-      botPickRef.current = botAnswer.code;
-      setBotPick(botAnswer.code);
-      if (playerPickRef.current !== null) {
-        // Player already answered first — bot is second
-        clearInterval(questionTimerRef.current);
-        resolveRound(playerPickRef.current, botAnswer.code, q.code, true);
-      } else {
-        // Bot answered first — show indicator, player still has time
-        setBotLocked(true);
-      }
-    }, delay);
-
-    return () => {
-      clearInterval(questionTimerRef.current);
-      clearTimeout(botTimerRef.current);
-    };
-  }, [current, phase, bot]);
-
-  const choose = (opt) => {
-    if (playerPickRef.current || phase !== "playing") return;
-    clearInterval(questionTimerRef.current);
-    clearTimeout(botTimerRef.current);
-    const q = questions[current];
-    playerPickRef.current = opt.code;
-    setPlayerPick(opt.code);
-
-    if (botPickRef.current !== null) {
-      // Bot already answered first
-      resolveRound(opt.code, botPickRef.current, q.code, false);
-    } else {
-      // Player answered first — bot responds instantly
-      const botCorrect = Math.random() < bot.accuracy;
-      const botAnswer  = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
-      botPickRef.current = botAnswer.code;
-      setBotPick(botAnswer.code);
-      resolveRound(opt.code, botAnswer.code, q.code, true);
-    }
-  };
-
-  // ── Done screen ──
-  if (phase === "done") {
-    const playerWon = playerScore > botScore;
-    const tie       = playerScore === botScore;
-    const change    = eloChange ?? calcEloChange(profile.elo, bot?.elo ?? 1000, playerWon && !tie);
-    if (eloChange === null) setEloChange(change);
-    const xp = playerWon ? 50 : tie ? 20 : 10;
-
-    return (
-      <div style={{ ...S.gameWrap, paddingBottom: 60 }}>
-        <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
-          <div style={{ fontSize: 64, marginBottom: 6 }}>{playerWon ? "🏆" : tie ? "🤝" : "💀"}</div>
-          <h2 style={{ color: "#fff", fontSize: 28, fontWeight: 900, margin: "0 0 4px" }}>
-            {playerWon ? "Victory!" : tie ? "Draw!" : "Defeat"}
-          </h2>
-          <div style={{ display: "flex", justifyContent: "center", gap: 32, margin: "18px 0", background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: "16px 32px" }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#a78bfa", fontWeight: 900, fontSize: 44 }}>{playerScore}</div>
-              <div style={{ color: "#64748b", fontSize: 12 }}>You</div>
-            </div>
-            <div style={{ color: "#334155", fontSize: 30, alignSelf: "center" }}>—</div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#f87171", fontWeight: 900, fontSize: 44 }}>{botScore}</div>
-              <div style={{ color: "#64748b", fontSize: 12 }}>{bot?.name}</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 20 }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ color: change >= 0 ? "#34d399" : "#ef4444", fontWeight: 800, fontSize: 22 }}>
-                {change >= 0 ? "+" : ""}{change} ELO
-              </div>
-              <div style={{ color: "#475569", fontSize: 11 }}>Rating change</div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#fbbf24", fontWeight: 800, fontSize: 22 }}>+{xp} XP</div>
-              <div style={{ color: "#475569", fontSize: 11 }}>Experience</div>
-            </div>
-          </div>
-
-          {/* Round-by-round breakdown */}
-          <div style={{ marginBottom: 20, textAlign: "left" }}>
-            <h3 style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 2, margin: "0 0 10px" }}>ROUND BREAKDOWN</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {roundScores.map((r, i) => (
-                <div key={i} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "7px 14px",
-                  border: `1px solid ${r.winner === "player" ? "rgba(167,139,250,0.2)" : r.winner === "bot" ? "rgba(248,113,113,0.2)" : r.winner === "tie" ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.05)"}`,
-                }}>
-                  <span style={{ color: "#475569", fontSize: 12, width: 60 }}>Round {i + 1}</span>
-                  <span style={{ color: "#a78bfa", fontWeight: 800, fontSize: 14, width: 24, textAlign: "center" }}>{r.playerPts}</span>
-                  <span style={{ color: r.winner === "timeout" ? "#f59e0b" : r.winner === "nobody" ? "#475569" : r.winner === "tie" ? "#fbbf24" : r.winner === "player" ? "#34d399" : "#f87171", fontSize: 11, flex: 1, textAlign: "center" }}>
-                    {r.winner === "player" ? "✓ You won" : r.winner === "bot" ? "✗ They won" : r.winner === "tie" ? "⚡ Tie" : r.winner === "timeout" ? "⏱ Timeout" : "— No points"}
-                  </span>
-                  <span style={{ color: "#f87171", fontWeight: 800, fontSize: 14, width: 24, textAlign: "center" }}>{r.botPts}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button style={S.primaryBtn} onClick={() => onComplete({ xp, eloChange: change, won: playerWon })}>Continue</button>
-            <button style={S.ghostBtn} onClick={onExit}>Menu</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Lobby ──
-  if (phase === "lobby") {
-    const preview = matchedBot();
-    return (
-      <div style={{ ...S.gameWrap, justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 32 }}>
-          <div style={{ fontSize: 56, marginBottom: 12 }}>⚔️</div>
-          <h2 style={{ color: "#fff", fontSize: 26, fontWeight: 900, margin: "0 0 4px" }}>1v1 Battle</h2>
-          <p style={{ color: "#64748b", marginBottom: 20 }}>Flags · {ROUNDS} rounds · {Q_TIME}s per question</p>
-          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 24, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 6 }}>{profile.avatar || "😎"}</div>
-                <div style={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 4 }}>{profile.username}</div>
-                <EloDisplay elo={profile.elo} />
-              </div>
-              <div style={{ color: "#ef4444", fontSize: 28, fontWeight: 900 }}>VS</div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 6 }}>{preview.avatar}</div>
-                <div style={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 4 }}>{preview.name}</div>
-                <EloDisplay elo={preview.elo} />
-              </div>
-            </div>
-            {/* Scoring rules */}
-            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", textAlign: "left" }}>
-              <p style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 1, margin: "0 0 6px" }}>SCORING</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {[["🥇 First correct answer", "+2 pts"], ["🥈 Second correct answer", "+1 pt"], ["✗ Wrong answer", "+0 pts"], ["⏱ No answer in time", "+0 pts"]].map(([rule, pts]) => (
-                  <div key={rule} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: "#94a3b8" }}>{rule}</span>
-                    <span style={{ color: "#fbbf24", fontWeight: 700 }}>{pts}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <button onClick={startMatch} style={{ ...S.primaryBtn, background: "linear-gradient(135deg,#ef4444,#ec4899)", width: "100%", marginBottom: 10 }}>
-            Find Match →
-          </button>
-          <button onClick={onExit} style={{ ...S.ghostBtn, width: "100%" }}>Back</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Countdown ──
-  if (phase === "countdown") {
-    return (
-      <div style={{ ...S.gameWrap, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontSize: 120, fontWeight: 900, color: "#fff", lineHeight: 1, animation: "popIn 0.3s ease" }}>{countdown || "GO!"}</div>
-        <p style={{ color: "#475569", marginTop: 16 }}>Get ready…</p>
-      </div>
-    );
-  }
-
-  if (!bot || !questions[current]) return null;
-  const q = questions[current];
-
-  // ── Timer ring ──
-  const timerPct  = timeLeft / Q_TIME;
-  const timerColor = timeLeft <= 2 ? "#ef4444" : timeLeft <= 4 ? "#f59e0b" : "#34d399";
-  const ringSize  = 56;
-  const radius    = (ringSize - 6) / 2;
-  const circ      = 2 * Math.PI * radius;
-
-  // ── Playing ──
-  return (
-    <div style={S.gameWrap}>
-      {/* Scoreboard header */}
-      <div style={{ display: "flex", alignItems: "center", padding: "14px 0 6px", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 24 }}>{profile.avatar || "😎"}</span>
-          <div>
-            <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: 13 }}>{profile.username}</div>
-            <div style={{ color: "#475569", fontSize: 10 }}>You</div>
-          </div>
-        </div>
-        <div style={{ background: "rgba(255,255,255,0.07)", borderRadius: 14, padding: "6px 18px", display: "flex", gap: 14, alignItems: "center" }}>
-          <span style={{ color: "#a78bfa", fontWeight: 900, fontSize: 26 }}>{playerScore}</span>
-          <span style={{ color: "#334155", fontSize: 18 }}>—</span>
-          <span style={{ color: "#f87171", fontWeight: 900, fontSize: 26 }}>{botScore}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end" }}>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ color: "#f87171", fontWeight: 700, fontSize: 13 }}>{bot.name}</div>
-            <div style={{ color: "#475569", fontSize: 10 }}>{bot.elo} ELO</div>
-          </div>
-          <span style={{ fontSize: 24 }}>{bot.avatar}</span>
-        </div>
-      </div>
-
-      {/* Round progress dots */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "6px 0 14px" }}>
-        {questions.map((_, i) => {
-          const rs = roundScores[i];
-          const bg = !rs ? (i === current ? "#6366f1" : "rgba(255,255,255,0.08)")
-            : rs.winner === "player" ? "#a78bfa" : rs.winner === "bot" ? "#f87171" : rs.winner === "tie" ? "#fbbf24" : "#334155";
-          return <div key={i} style={{ width: i === current ? 18 : 8, height: 8, borderRadius: 4, background: bg, transition: "all 0.3s" }} />;
-        })}
-      </div>
-
-      <div key={animKey} style={{ animation: "slideIn 0.2s ease", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <FlagImg code={q.code} size={200} />
-
-        {/* Timer ring + status row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* SVG countdown ring */}
-          <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={5} />
-            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke={timerColor}
-              strokeWidth={5} strokeDasharray={circ}
-              strokeDashoffset={circ * (1 - timerPct)}
-              style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }} />
-            <text x={ringSize/2} y={ringSize/2} textAnchor="middle" dominantBaseline="central"
-              fill={timerColor} fontSize={16} fontWeight="900"
-              style={{ transform: "rotate(90deg)", transformOrigin: "center" }}>{timeLeft}</text>
-          </svg>
-
-          {/* Lock-in indicators */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: playerPick ? "#a78bfa" : "rgba(255,255,255,0.1)", transition: "background 0.2s" }} />
-              <span style={{ color: playerPick ? "#a78bfa" : "#334155", fontSize: 12, fontWeight: 600 }}>
-                {playerPick ? (phase === "roundResult" ? (playerPick === q.code ? "✓ Correct" : "✗ Wrong") : "Locked in") : "Waiting…"}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: (botLocked || botPick) ? "#f87171" : "rgba(255,255,255,0.1)", transition: "background 0.2s" }} />
-              <span style={{ color: (botLocked || botPick) ? "#f87171" : "#334155", fontSize: 12, fontWeight: 600 }}>
-                {(botLocked || (botPick && phase === "roundResult")) ? (phase === "roundResult" ? (botPick === q.code ? "✓ Correct" : "✗ Wrong") : `${bot.name} locked in!`) : "Thinking…"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Round result banner */}
-        {roundResult && (() => {
-          const { winner, playerPts, botPts } = roundResult;
-          const bg    = winner === "player" ? "rgba(52,211,153,0.15)" : winner === "bot" ? "rgba(248,113,113,0.15)" : winner === "tie" ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.05)";
-          const color = winner === "player" ? "#34d399" : winner === "bot" ? "#f87171" : winner === "tie" ? "#fbbf24" : "#475569";
-          const label = winner === "player" ? "🥇 You answered first!" : winner === "bot" ? `🥇 ${bot.name} was faster!` : winner === "tie" ? "⚡ Simultaneous!" : winner === "timeout" ? "⏱ Time's up — no points" : "✗ Neither correct";
-          return (
-            <div style={{ background: bg, border: `1px solid ${color}44`, borderRadius: 12, padding: "10px 20px", textAlign: "center" }}>
-              <div style={{ color, fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{label}</div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 20, fontSize: 12, color: "#94a3b8" }}>
-                <span>You <strong style={{ color: "#a78bfa" }}>+{playerPts}</strong></span>
-                <span>{bot.name} <strong style={{ color: "#f87171" }}>+{botPts}</strong></span>
-              </div>
-            </div>
-          );
-        })()}
-
-        <div style={S.grid2}>
-          {options.map(opt => {
-            let extra = {};
-            if (playerPick || roundResult) {
-              if (opt.code === q.code) extra = { background: "rgba(52,211,153,0.2)", borderColor: "#34d399" };
-              else if (opt.code === playerPick && playerPick !== q.code) extra = { background: "rgba(239,68,68,0.2)", borderColor: "#ef4444" };
-            }
-            return (
-              <button key={opt.code} onClick={() => choose(opt)}
-                disabled={!!playerPick || phase === "roundResult"}
-                style={{ ...S.option, ...extra, justifyContent: "center", opacity: playerPick && opt.code !== q.code && opt.code !== playerPick ? 0.4 : 1 }}>
-                <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 14 }}>{opt.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── CAPITALS MC GAME ─────────────────────────────────────────────────────────
 function CapitalsMCGame({ onExit, onComplete }) {
@@ -2202,78 +1732,12 @@ function LearnPage({ profile, onGameComplete }) {
   );
 }
 
-// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-function LeaderboardPage({ profile }) {
-  const [tab, setTab] = useState("elo");
-  const staticPlayers = [
-    { name: "flaglord99",    elo: 2240, xp: 4200, wins: 312, countryCode: "US" },
-    { name: "geoqueen",      elo: 2105, xp: 3800, wins: 278, countryCode: "GB" },
-    { name: "atlas_nerd",    elo: 1942, xp: 3100, wins: 201, countryCode: "DE" },
-    { name: "vexillophile",  elo: 1820, xp: 2900, wins: 167, countryCode: "JP" },
-    { name: "mapmaster_k",   elo: 1744, xp: 2400, wins: 134, countryCode: "BR" },
-    { name: "flagwatcher",   elo: 1680, xp: 2200, wins: 112, countryCode: "FR" },
-    { name: "geo_storm",     elo: 1555, xp: 1900, wins:  88, countryCode: "KR" },
-    { name: "worldrunner",   elo: 1420, xp: 1600, wins:  71, countryCode: "IN" },
-  ];
-  const allPlayers = [
-    ...staticPlayers,
-    { name: profile.username, elo: profile.elo, xp: profile.xp, wins: profile.wins, countryCode: profile.homeCountry || null, isYou: true },
-  ].sort((a, b) => tab === "elo" ? b.elo - a.elo : b.xp - a.xp);
-
-  return (
-    <div style={{ padding: "8px 0 40px" }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {[["elo","🏅 ELO Ranking"],["xp","⭐ XP Ranking"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            flex: 1, padding: "9px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13,
-            border: tab === id ? "1px solid #6366f1" : "1px solid rgba(255,255,255,0.08)",
-            background: tab === id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
-            color: tab === id ? "#a78bfa" : "#475569",
-          }}>{label}</button>
-        ))}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {allPlayers.map((p, i) => {
-          const tier = getEloTier(p.elo);
-          return (
-            <div key={p.name} style={{
-              display: "flex", alignItems: "center", gap: 12,
-              background: p.isYou ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
-              border: p.isYou ? "1px solid #6366f144" : "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 14, padding: "12px 16px",
-            }}>
-              <div style={{ width: 28, textAlign: "center", fontWeight: 900, color: i < 3 ? ["#fbbf24","#94a3b8","#cd7c3f"][i] : "#334155", fontSize: i < 3 ? 20 : 13 }}>
-                {i < 3 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}
-              </div>
-              <div style={{ width: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>{p.countryCode ? <FlagIcon code={p.countryCode} height={18} /> : <span style={{ color: "#334155", fontSize: 16 }}>🏠</span>}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: p.isYou ? "#a78bfa" : "#e2e8f0", fontWeight: 700, fontSize: 14 }}>
-                  {p.name}{p.isYou ? " (you)" : ""}
-                </div>
-                <div style={{ color: tier.color, fontSize: 11 }}>{tier.icon} {tier.name}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                {tab === "elo" ? (
-                  <><div style={{ color: "#fff", fontWeight: 700 }}>{p.elo}</div><div style={{ color: "#475569", fontSize: 10 }}>ELO</div></>
-                ) : (
-                  <><div style={{ color: "#fbbf24", fontWeight: 700 }}>{p.xp.toLocaleString()}</div><div style={{ color: "#475569", fontSize: 10 }}>XP</div></>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // ─── PROFILE PAGE ─────────────────────────────────────────────────────────────
 function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
-  const tier = getEloTier(profile.elo);
   const xpRank = getXPRank(profile.xp);
   const nextXP = XP_RANKS.find(r => r.minXP > profile.xp);
   const acc = profile.totalAnswered > 0 ? Math.round((profile.totalCorrect / profile.totalAnswered) * 100) : 0;
-  const winRate = profile.gamesPlayed > 0 ? Math.round((profile.wins / profile.gamesPlayed) * 100) : 0;
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const modeIcon = (m) => {
@@ -2304,15 +1768,6 @@ function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
           <CountryPicker value={profile.homeCountry} onChange={(code) => onUpdateProfile({ ...profile, homeCountry: code })} />
         </div>
 
-        {/* ELO tier pill */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: tier.gradient, borderRadius: 50, padding: "10px 24px", marginBottom: 16 }}>
-          <span style={{ fontSize: 24 }}>{tier.icon}</span>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 17 }}>{tier.name}</div>
-            <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 11 }}>{profile.elo} ELO</div>
-          </div>
-        </div>
-
         {/* XP rank row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 18 }}>{xpRank.icon}</span>
@@ -2339,37 +1794,12 @@ function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
         })()}
       </div>
 
-      {/* ── ELO tier progress ── */}
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 18, padding: "16px 18px", marginBottom: 16 }}>
-        <h3 style={{ ...S.sectionLabel, marginBottom: 14 }}>ELO TIERS</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {ELO_TIERS.map(t => {
-            const achieved = profile.elo >= t.min;
-            const current = getEloTier(profile.elo).name === t.name;
-            return (
-              <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 12, opacity: achieved ? 1 : 0.35 }}>
-                <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>{t.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: current ? t.color : achieved ? "#94a3b8" : "#334155", fontWeight: current ? 800 : 600, fontSize: 13 }}>
-                    {t.name} {current && <span style={{ fontSize: 10, background: `${t.color}33`, color: t.color, padding: "1px 7px", borderRadius: 20, marginLeft: 4 }}>CURRENT</span>}
-                  </div>
-                  <div style={{ color: "#334155", fontSize: 11 }}>{t.min}+ ELO</div>
-                </div>
-                {achieved && <span style={{ color: t.color, fontSize: 16 }}>✓</span>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── Stats grid ── */}
       <h3 style={{ ...S.sectionLabel, marginBottom: 10 }}>STATS</h3>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         {[
           ["🎮", "Games Played",  profile.gamesPlayed],
-          ["🏆", "Wins",          profile.wins],
           ["🎯", "Accuracy",      `${acc}%`],
-          ["📊", "Win Rate",      `${winRate}%`],
           ["✅", "Correct Ans.",  profile.totalCorrect],
           ["🔥", "Best Streak",   profile.streak],
         ].map(([icon, label, val]) => (
@@ -2393,11 +1823,6 @@ function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
                   <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{h.mode}</div>
                   <div style={{ color: "#475569", fontSize: 11 }}>{h.score}</div>
                 </div>
-                {h.eloChange !== undefined && (
-                  <div style={{ color: h.eloChange >= 0 ? "#34d399" : "#ef4444", fontWeight: 700, fontSize: 13, minWidth: 52, textAlign: "right" }}>
-                    {h.eloChange >= 0 ? "+" : ""}{h.eloChange} ELO
-                  </div>
-                )}
                 <div style={{ color: "#fbbf24", fontSize: 12, minWidth: 44, textAlign: "right" }}>+{h.xp} XP</div>
               </div>
             ))}
@@ -2491,9 +1916,7 @@ function GameModePicker({ onStart }) {
   const GAME_OPTIONS = [
     { id: "solo",       label: "Classic Quiz",  sub: "10 questions, no timer",      icon: "🎯", color: "#6366f1" },
     { id: "speed",      label: "Speed Run",     sub: "30 seconds, max answers",     icon: "⚡", color: "#f59e0b" },
-    { id: "pvp",        label: "1v1 Battle",    sub: "Race an opponent · MC only",  icon: "⚔️", color: "#ef4444", mcOnly: true },
-    { id: "pvp-type",   label: "1v1 Typing",    sub: "First to type wins",          icon: "🔥", color: "#ec4899", soon: true },
-    { id: "tournament", label: "Tournament",    sub: "8-player bracket",            icon: "🏆", color: "#64748b", soon: true },
+        { id: "tournament", label: "Tournament",    sub: "8-player bracket",            icon: "🏆", color: "#64748b", soon: true },
   ];
 
   // breadcrumb label helpers
@@ -2635,7 +2058,7 @@ export default function App() {
   };
 
   const startGame = (mode) => {
-    if (["tournament", "daily", "pvp-type"].includes(mode)) {
+    if (["tournament", "daily", "pvp-type", "pvp"].includes(mode)) {
       showNotif("Coming soon! 🚧", "#f59e0b");
       return;
     }
@@ -2645,7 +2068,7 @@ export default function App() {
   };
 
   const handleGameComplete = (result) => {
-    const { xp = 0, eloChange = 0, correct = 0, total = 0, won = false, knowledgeUpdates = [] } = result;
+    const { xp = 0, correct = 0, total = 0, knowledgeUpdates = [] } = result;
     const p = { ...profile };
     // Merge spaced-repetition knowledge
     if (!p.knowledge) p.knowledge = { flags: {}, capitals: {} };
@@ -2663,14 +2086,11 @@ export default function App() {
     p.gamesPlayed += 1;
     p.totalCorrect += correct;
     p.totalAnswered += total;
-    if (won || (total > 0 && correct === total)) p.wins += 1;
-    if (eloChange) p.elo = Math.max(100, p.elo + eloChange);
-    const modeLabel = gameMode === "pvp" ? "pvp" : gameMode === "solo-type" ? "typing" : gameMode === "speed" ? "speed" : gameMode === "flashcard" ? "flashcard" : gameMode === "capitals-mc" ? "capitals" : gameMode === "capitals-type" ? "capitals typing" : "quiz";
+    const modeLabel = gameMode === "solo-type" ? "typing" : gameMode === "speed" ? "speed" : gameMode === "flashcard" ? "flashcard" : gameMode === "capitals-mc" ? "capitals" : gameMode === "capitals-type" ? "capitals typing" : "quiz";
     p.history = [...(p.history || []), {
       mode: modeLabel,
       score: total > 0 ? `${correct}/${total}` : won ? "Win" : "Loss",
       xp,
-      eloChange: eloChange || undefined,
       date: Date.now(),
     }];
 
@@ -2707,13 +2127,10 @@ export default function App() {
     // Update best streak
     if ((p.dailyStreak || 0) > (p.streak || 0)) p.streak = p.dailyStreak;
 
-    const tierBefore = getEloTier(profile.elo).name;
-    const tierAfter = getEloTier(p.elo);
     persistProfile(p);
 
     if (streakAwarded && p.dailyStreak > 1) showNotif(`🔥 ${p.dailyStreak} day streak! Keep it up!`, "#f59e0b");
     else if (streakAwarded) showNotif("🔥 Streak started! Come back tomorrow!", "#f59e0b");
-    else if (tierAfter.name !== tierBefore && eloChange > 0) showNotif(`🎉 Promoted to ${tierAfter.name}!`, tierAfter.color);
     else if (xp > 0) showNotif(`+${xp} XP earned!`);
 
     setScreen("home");
@@ -2756,14 +2173,12 @@ export default function App() {
     if (gameMode === "flag-pick")     return <FlagPickerGame {...props} />;
     if (gameMode === "solo-mc")       return <SoloMCGame {...props} />;
     if (gameMode === "solo-type")     return <SoloTypingGame {...props} />;
-    if (gameMode === "pvp")           return <PvPGame {...props} />;
     if (gameMode === "flashcard")     return <FlashcardGame {...props} />;
     if (gameMode === "speed")         return <SpeedRound {...props} />;
     if (gameMode === "capitals-mc")   return <CapitalsMCGame {...props} />;
     if (gameMode === "capitals-type") return <CapitalsTypingGame {...props} />;
   }
 
-  const tier = getEloTier(profile.elo);
   const xpRank = getXPRank(profile.xp);
   const nextXP = XP_RANKS.find(r => r.minXP > profile.xp);
 
@@ -2794,10 +2209,6 @@ export default function App() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0 8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 26 }}>{profile.avatar || "😎"}</span><h1 style={{ ...S.logo, fontSize: 26, margin: 0 }}>FlagMaster</h1></div>
           <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ background: tier.gradient, borderRadius: 10, padding: "5px 12px", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 14 }}>{tier.icon}</span>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12 }}>{profile.elo} ELO</span>
-            </div>
             <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "5px 12px", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 13 }}>⭐</span>
               <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 12 }}>{profile.xp} XP</span>
@@ -2814,7 +2225,7 @@ export default function App() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 4, marginBottom: 20 }}>
-          {[["home","🎮","Play"],["learn","📖","Learn"],["leaderboard","🏆","Leaders"],["profile","👤","Profile"]].map(([id, icon, label]) => (
+          {[["home","🎮","Play"],["learn","📖","Learn"],["profile","👤","Profile"]].map(([id, icon, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
               padding: "7px 4px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 18,
@@ -2837,7 +2248,7 @@ export default function App() {
                 <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 800, margin: 0 }}>{profile.username}</h3>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: tier.color, fontSize: 12, fontWeight: 700 }}>{tier.icon} {tier.name}</div>
+                <div style={{ color: xpRank.color, fontSize: 12, fontWeight: 700 }}>{xpRank.icon} {xpRank.name}</div>
                 <div style={{ color: "#475569", fontSize: 11 }}>{profile.gamesPlayed} games played</div>
               </div>
             </div>
@@ -2881,7 +2292,6 @@ export default function App() {
           </div>
         )}
         {tab === "learn"       && <LearnPage profile={profile} onGameComplete={(r) => { setPreviousTab("learn"); handleGameComplete(r); }} />}
-        {tab === "leaderboard" && <LeaderboardPage profile={profile} />}
         {tab === "profile"     && <ProfilePage profile={profile} onLogout={handleLogout} onReset={handleReset} onUpdateProfile={(p) => persistProfile(p)} />}
       </div>
     </div>
