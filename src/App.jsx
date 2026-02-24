@@ -2482,9 +2482,10 @@ function GameModePicker({ onStart }) {
   ];
 
   const INPUT_OPTIONS = [
-    { id: "mc",     label: "Multiple Choice", sub: "Pick from 4 options",         icon: "🧠", color: "#6366f1" },
-    { id: "typing", label: "Typing",          sub: "Type the answer yourself",    icon: "⌨️", color: "#06b6d4" },
-    { id: "flashcard", label: "Flashcards",   sub: "Flip cards — flags only",     icon: "📚", color: "#10b981", flagsOnly: true },
+    { id: "mc",        label: "Multiple Choice", sub: "See flag → name the country",  icon: "🧠", color: "#6366f1" },
+    { id: "flag-pick", label: "Flag Picker",     sub: "See country → pick the flag",  icon: "🏳️", color: "#0ea5e9", flagsOnly: true, direct: "flag-pick" },
+    { id: "typing",    label: "Typing",          sub: "Type the answer yourself",     icon: "⌨️", color: "#06b6d4" },
+    { id: "flashcard", label: "Flashcards",      sub: "Flip cards — flags only",      icon: "📚", color: "#10b981", flagsOnly: true },
   ];
 
   const GAME_OPTIONS = [
@@ -2550,7 +2551,7 @@ function GameModePicker({ onStart }) {
       <h3 style={S.sectionLabel}>HOW DO YOU WANT TO PLAY?</h3>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
         {INPUT_OPTIONS.filter(opt => !(opt.flagsOnly && category !== "flags")).map(opt => (
-          <button key={opt.id} onClick={() => setInputMode(opt.id)} style={{
+          <button key={opt.id} onClick={() => opt.direct ? onStart(opt.direct) : setInputMode(opt.id)} style={{
             background: "rgba(255,255,255,0.05)", border: `1px solid ${opt.color}44`,
             borderRadius: 16, padding: "16px 18px", textAlign: "left", cursor: "pointer",
             display: "flex", alignItems: "center", gap: 16,
@@ -2560,7 +2561,7 @@ function GameModePicker({ onStart }) {
               <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 15, margin: "0 0 3px" }}>{opt.label}</p>
               <p style={{ color: "#475569", fontSize: 12, margin: 0 }}>{opt.sub}</p>
             </div>
-            <span style={{ marginLeft: "auto", color: "#334155", fontSize: 18 }}>›</span>
+            <span style={{ marginLeft: "auto", color: "#334155", fontSize: 18 }}>{opt.direct ? "▶" : "›"}</span>
           </button>
         ))}
       </div>
