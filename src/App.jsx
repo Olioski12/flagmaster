@@ -439,7 +439,8 @@ const BOT_OPPONENTS = [
 ];
 
 const GAME_MODES = [
-  { id: "solo-mc",       label: "Flags Quiz",      sub: "Multiple choice",       icon: "🧠", color: "#6366f1", tag: "SOLO", category: "flags"    },
+  { id: "solo-mc",       label: "Flags Quiz",      sub: "See flag → name country",  icon: "🧠", color: "#6366f1", tag: "SOLO", category: "flags"    },
+  { id: "flag-pick",      label: "Flag Picker",     sub: "See country → pick flag",   icon: "🏳️", color: "#0ea5e9", tag: "SOLO", category: "flags"    },
   { id: "solo-type",     label: "Flags Typing",    sub: "Type the country",      icon: "⌨️", color: "#06b6d4", tag: "SOLO", category: "flags"    },
   { id: "flashcard",     label: "Flashcards",      sub: "Flip & learn",          icon: "📚", color: "#10b981", tag: "SOLO", category: "flags"    },
   { id: "speed",         label: "Speed Run",       sub: "30-second blitz",       icon: "⚡", color: "#f59e0b", tag: "SOLO", category: "flags"    },
@@ -866,6 +867,93 @@ function Onboarding({ onDone }) {
   );
 }
 
+// ─── FLAG PICKER GAME (country name → pick correct flag) ────────────────────
+function FlagPickerGame({ onExit, onComplete }) {
+  const TOTAL = 10;
+  const [questions] = useState(() => shuffle(FLAGS).slice(0, TOTAL));
+  const [current, setCurrent]   = useState(0);
+  const [options, setOptions]   = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [score, setScore]       = useState(0);
+  const [streak, setStreak]     = useState(0);
+  const [done, setDone]         = useState(false);
+  const [animKey, setAnimKey]   = useState(0);
+  const [kuRef]                 = useState([]);
+  const [reviewRef]             = useState([]);
+
+  useEffect(() => {
+    const q = questions[current];
+    const wrong = shuffle(FLAGS.filter(f => f.code !== q.code)).slice(0, 3);
+    setOptions(shuffle([q, ...wrong]));
+    setSelected(null);
+    setAnimKey(k => k + 1);
+  }, [current]);
+
+  const choose = (opt) => {
+    if (selected) return;
+    setSelected(opt.code);
+    const q = questions[current];
+    const correct = opt.code === q.code;
+    kuRef.push({ category: "flags", id: q.code, wasCorrect: correct, confusedWithId: correct ? null : opt.code });
+    reviewRef.push({ question: q.name, yourAnswer: opt.name, correctAnswer: q.name, correct });
+    if (correct) { setScore(s => s + 1); setStreak(s => s + 1); }
+    else setStreak(0);
+    setTimeout(() => {
+      if (current + 1 >= TOTAL) setDone(true);
+      else setCurrent(c => c + 1);
+    }, 950);
+  };
+
+  if (done) {
+    const xp = score * 12 + (score === TOTAL ? 60 : 0);
+    return <GameResult icon={score >= 8 ? "🎉" : score >= 5 ? "👍" : "😬"}
+      title={`${score}/${TOTAL} Correct`} xp={xp} review={reviewRef}
+      onComplete={() => onComplete({ xp, correct: score, total: TOTAL, knowledgeUpdates: kuRef })} />;
+  }
+
+  const q = questions[current];
+  return (
+    <GameShell hud={<><div style={S.stat}>🔥 {streak}</div><div style={S.stat}>{current + 1}/{TOTAL}</div></>}
+      progress={current / TOTAL} onExit={onExit}>
+      <div key={animKey} style={{ animation: "slideIn 0.25s ease", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+        {/* Show country name and region — NOT the flag */}
+        <div style={{ textAlign: "center", padding: "12px 24px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20 }}>
+          <h2 style={{ color: "#fff", fontSize: 32, fontWeight: 900, margin: "0 0 4px", letterSpacing: -0.5 }}>{q.name}</h2>
+          <p style={{ color: "#475569", fontSize: 12, margin: 0 }}>{q.region}</p>
+        </div>
+        <p style={S.question}>Which flag belongs to this country?</p>
+        {/* 2×2 grid of flag images */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%", maxWidth: 360 }}>
+          {options.map(opt => {
+            let borderColor = "rgba(255,255,255,0.1)";
+            let bg          = "rgba(255,255,255,0.03)";
+            if (selected) {
+              if (opt.code === q.code)                            { borderColor = "#34d399"; bg = "rgba(52,211,153,0.12)"; }
+              else if (opt.code === selected && selected !== q.code) { borderColor = "#ef4444"; bg = "rgba(239,68,68,0.12)"; }
+              else                                                { bg = "rgba(255,255,255,0.01)"; }
+            }
+            return (
+              <button key={opt.code} onClick={() => choose(opt)} style={{
+                background: bg, border: `2px solid ${borderColor}`, borderRadius: 16,
+                padding: 10, cursor: "pointer", display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 8, transition: "all 0.2s",
+                opacity: selected && opt.code !== q.code && opt.code !== selected ? 0.45 : 1,
+              }}>
+                <FlagImg code={opt.code} size={120} />
+                {selected && (
+                  <span style={{ color: opt.code === q.code ? "#34d399" : opt.code === selected ? "#f87171" : "#334155", fontSize: 11, fontWeight: 700 }}>
+                    {opt.name}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </GameShell>
+  );
+}
+
 // ─── SOLO MULTIPLE CHOICE ─────────────────────────────────────────────────────
 function SoloMCGame({ onExit, onComplete }) {
   const TOTAL = 10;
@@ -1151,24 +1239,43 @@ function SpeedRound({ onExit, onComplete }) {
 
 // ─── PVP GAME ─────────────────────────────────────────────────────────────────
 function PvPGame({ onExit, onComplete, profile }) {
-  const ROUNDS = 7;
-  const [phase, setPhase] = useState("lobby");
-  const [bot, setBot] = useState(null);
-  const [questions] = useState(() => shuffle(FLAGS).slice(0, ROUNDS));
-  const [current, setCurrent] = useState(0);
-  const [options, setOptions] = useState([]);
+  const ROUNDS      = 7;
+  const Q_TIME      = 8;   // seconds per question
+  const FIRST_PTS   = 2;   // points for answering first and correctly
+  const SECOND_PTS  = 1;   // points for answering second but still correctly
+  const TIMEOUT_PTS = 0;   // points if time runs out
+
+  const [phase, setPhase]             = useState("lobby");
+  const [bot, setBot]                 = useState(null);
+  const [questions]                   = useState(() => shuffle(FLAGS).slice(0, ROUNDS));
+  const [current, setCurrent]         = useState(0);
+  const [options, setOptions]         = useState([]);
   const [playerScore, setPlayerScore] = useState(0);
-  const [botScore, setBotScore] = useState(0);
-  const [selected, setSelected] = useState(null);
-  const [botSelected, setBotSelected] = useState(null);
-  const [roundWinner, setRoundWinner] = useState(null);
-  const [countdown, setCountdown] = useState(3);
-  const [animKey, setAnimKey] = useState(0);
-  const [eloChange, setEloChange] = useState(null);
-  const botTimerRef = useRef(null);
+  const [botScore, setBotScore]       = useState(0);
+
+  // Per-round state
+  const [playerPick, setPlayerPick]   = useState(null);
+  const [botPick, setBotPick]         = useState(null);
+  const [botLocked, setBotLocked]     = useState(false);
+  const [roundResult, setRoundResult] = useState(null);
+  const [timeLeft, setTimeLeft]       = useState(Q_TIME);
+  const [roundScores, setRoundScores] = useState([]);
+
+  const [countdown, setCountdown]     = useState(3);
+  const [animKey, setAnimKey]         = useState(0);
+  const [eloChange, setEloChange]     = useState(null);
+
+  const botTimerRef      = useRef(null);
+  const questionTimerRef = useRef(null);
+  // Refs for synchronous reads inside timers — avoids stale closures & double-resolves
+  const phaseRef      = useRef(phase);
+  const resolvedRef   = useRef(false);  // true once resolveRound has fired for this round
+  const playerPickRef = useRef(null);
+  const botPickRef    = useRef(null);
+  phaseRef.current = phase;
 
   const matchedBot = useCallback(() => {
-    const candidates = BOT_OPPONENTS.filter(b => Math.abs(b.elo - profile.elo) < 500);
+    const candidates = BOT_OPPONENTS.filter(b => Math.abs(b.elo - profile.elo) < 600);
     return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : BOT_OPPONENTS[1];
   }, [profile.elo]);
 
@@ -1184,94 +1291,200 @@ function PvPGame({ onExit, onComplete, profile }) {
     }, 1000);
   };
 
-  const resolveRound = useCallback((playerCode, botCode, correctCode) => {
-    const pWon = playerCode === correctCode;
-    const bWon = botCode === correctCode;
-    const winner = pWon && !bWon ? "player" : bWon && !pWon ? "bot" : pWon && bWon ? "tie" : "bot";
-    if (winner === "player") setPlayerScore(s => s + 1);
-    else if (winner === "bot") setBotScore(s => s + 1);
-    setRoundWinner(winner);
-    setBotSelected(botCode);
+  // ── Resolve round: who answered first? ──
+  const resolveRound = useCallback((pPick, bPick, correctCode, pFirst) => {
+    if (resolvedRef.current) return;  // guard against double-fire
+    resolvedRef.current = true;
+    const pCorrect = pPick === correctCode;
+    const bCorrect = bPick === correctCode;
+
+    let playerPts = 0, botPts = 0, winner = "nobody";
+
+    if (pPick === null && bPick === null) {
+      // timeout — nobody answered
+      winner = "timeout";
+    } else if (pFirst === true) {
+      // Player answered first
+      if (pCorrect) {
+        playerPts = FIRST_PTS;                          // first & correct → 2
+        botPts    = bCorrect ? SECOND_PTS : 0;          // bot second & correct → 1, wrong → 0
+        winner    = "player";
+      } else {
+        // Player was first but wrong
+        botPts = bCorrect ? FIRST_PTS : 0;              // bot correct after wrong first → 2 (no penalty for being second if first was wrong)
+        winner = bCorrect ? "bot" : "nobody";
+      }
+    } else if (pFirst === false) {
+      // Bot answered first
+      if (bCorrect) {
+        botPts    = FIRST_PTS;                          // first & correct → 2
+        playerPts = pCorrect ? SECOND_PTS : 0;          // player second & correct → 1, wrong → 0
+        winner    = "bot";
+      } else {
+        // Bot was first but wrong
+        playerPts = pCorrect ? FIRST_PTS : 0;           // player correct after wrong first → 2
+        winner    = pCorrect ? "player" : "nobody";
+      }
+    } else {
+      // Both timed out or simultaneous
+      if (pCorrect) playerPts = FIRST_PTS;
+      if (bCorrect) botPts = FIRST_PTS;
+      winner = pCorrect && !bCorrect ? "player" : bCorrect && !pCorrect ? "bot" : pCorrect && bCorrect ? "tie" : "nobody";
+    }
+
+    setPlayerScore(s => s + playerPts);
+    setBotScore(s => s + botPts);
+    setRoundResult({ winner, playerPts, botPts, correct: correctCode, pFirst });
+    setRoundScores(rs => [...rs, { winner, playerPts, botPts }]);
     setPhase("roundResult");
+
+    // Advance after showing result
     setTimeout(() => {
       if (current + 1 >= ROUNDS) { setPhase("done"); }
-      else { setCurrent(c => c + 1); setPhase("playing"); }
-    }, 1400);
+      else {
+        setCurrent(c => c + 1);
+        setPhase("playing");
+      }
+    }, 1800);
   }, [current]);
 
+  // ── Question timer + bot scheduling ──
   useEffect(() => {
     if (phase !== "playing" || !bot) return;
     const q = questions[current];
     const wrong = shuffle(FLAGS.filter(f => f.code !== q.code)).slice(0, 3);
     setOptions(shuffle([q, ...wrong]));
-    setSelected(null);
-    setBotSelected(null);
-    setRoundWinner(null);
+    // Reset all per-round state synchronously via refs AND React state
+    resolvedRef.current   = false;
+    playerPickRef.current = null;
+    botPickRef.current    = null;
+    setPlayerPick(null);
+    setBotPick(null);
+    setBotLocked(false);
+    setRoundResult(null);
+    setTimeLeft(Q_TIME);
     setAnimKey(k => k + 1);
 
+    // Question countdown timer
+    let tl = Q_TIME;
+    questionTimerRef.current = setInterval(() => {
+      tl--;
+      setTimeLeft(tl);
+      if (tl <= 0) {
+        clearInterval(questionTimerRef.current);
+        clearTimeout(botTimerRef.current);
+        if (phaseRef.current === "playing") {
+          resolveRound(playerPickRef.current, botPickRef.current, q.code, null);
+        }
+      }
+    }, 1000);
+
+    // Bot answer — scheduled based on bot speed
     const botCorrect = Math.random() < bot.accuracy;
-    const botAnswer = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
-    const delay = bot.speed + (Math.random() - 0.5) * 500;
+    const botAnswer  = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
+    const delay      = Math.min(bot.speed + (Math.random() - 0.5) * 600, (Q_TIME - 0.5) * 1000);
 
     botTimerRef.current = setTimeout(() => {
-      // Bot answers — player hasn't answered yet
-      setSelected(prev => {
-        if (!prev) resolveRound(null, botAnswer.code, q.code);
-        return prev;
-      });
+      if (phaseRef.current !== "playing") return;
+      botPickRef.current = botAnswer.code;
+      setBotPick(botAnswer.code);
+      if (playerPickRef.current !== null) {
+        // Player already answered first — bot is second
+        clearInterval(questionTimerRef.current);
+        resolveRound(playerPickRef.current, botAnswer.code, q.code, true);
+      } else {
+        // Bot answered first — show indicator, player still has time
+        setBotLocked(true);
+      }
     }, delay);
 
-    return () => clearTimeout(botTimerRef.current);
+    return () => {
+      clearInterval(questionTimerRef.current);
+      clearTimeout(botTimerRef.current);
+    };
   }, [current, phase, bot]);
 
   const choose = (opt) => {
-    if (selected || phase !== "playing") return;
+    if (playerPickRef.current || phase !== "playing") return;
+    clearInterval(questionTimerRef.current);
     clearTimeout(botTimerRef.current);
-    setSelected(opt.code);
     const q = questions[current];
-    const botCorrect = Math.random() < bot.accuracy;
-    const botAnswer = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
-    resolveRound(opt.code, botAnswer.code, q.code);
+    playerPickRef.current = opt.code;
+    setPlayerPick(opt.code);
+
+    if (botPickRef.current !== null) {
+      // Bot already answered first
+      resolveRound(opt.code, botPickRef.current, q.code, false);
+    } else {
+      // Player answered first — bot responds instantly
+      const botCorrect = Math.random() < bot.accuracy;
+      const botAnswer  = botCorrect ? q : shuffle(FLAGS.filter(f => f.code !== q.code))[0];
+      botPickRef.current = botAnswer.code;
+      setBotPick(botAnswer.code);
+      resolveRound(opt.code, botAnswer.code, q.code, true);
+    }
   };
 
   // ── Done screen ──
   if (phase === "done") {
     const playerWon = playerScore > botScore;
-    const tie = playerScore === botScore;
-    const change = eloChange ?? calcEloChange(profile.elo, bot?.elo ?? 1000, playerWon && !tie);
+    const tie       = playerScore === botScore;
+    const change    = eloChange ?? calcEloChange(profile.elo, bot?.elo ?? 1000, playerWon && !tie);
     if (eloChange === null) setEloChange(change);
     const xp = playerWon ? 50 : tie ? 20 : 10;
 
     return (
-      <div style={{ ...S.gameWrap, justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 32 }}>
-          <div style={{ fontSize: 72, marginBottom: 8 }}>{playerWon ? "🏆" : tie ? "🤝" : "💀"}</div>
-          <h2 style={{ color: "#fff", fontSize: 32, fontWeight: 900, margin: "0 0 4px" }}>
+      <div style={{ ...S.gameWrap, paddingBottom: 60 }}>
+        <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
+          <div style={{ fontSize: 64, marginBottom: 6 }}>{playerWon ? "🏆" : tie ? "🤝" : "💀"}</div>
+          <h2 style={{ color: "#fff", fontSize: 28, fontWeight: 900, margin: "0 0 4px" }}>
             {playerWon ? "Victory!" : tie ? "Draw!" : "Defeat"}
           </h2>
-          <div style={{ display: "flex", justifyContent: "center", gap: 32, margin: "20px 0", background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: "16px 32px" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, margin: "18px 0", background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: "16px 32px" }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#a78bfa", fontWeight: 900, fontSize: 40 }}>{playerScore}</div>
+              <div style={{ color: "#a78bfa", fontWeight: 900, fontSize: 44 }}>{playerScore}</div>
               <div style={{ color: "#64748b", fontSize: 12 }}>You</div>
             </div>
             <div style={{ color: "#334155", fontSize: 30, alignSelf: "center" }}>—</div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#f87171", fontWeight: 900, fontSize: 40 }}>{botScore}</div>
+              <div style={{ color: "#f87171", fontWeight: 900, fontSize: 44 }}>{botScore}</div>
               <div style={{ color: "#64748b", fontSize: 12 }}>{bot?.name}</div>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 28 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 20 }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ color: change >= 0 ? "#34d399" : "#ef4444", fontWeight: 800, fontSize: 24 }}>
+              <div style={{ color: change >= 0 ? "#34d399" : "#ef4444", fontWeight: 800, fontSize: 22 }}>
                 {change >= 0 ? "+" : ""}{change} ELO
               </div>
               <div style={{ color: "#475569", fontSize: 11 }}>Rating change</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ color: "#fbbf24", fontWeight: 800, fontSize: 24 }}>+{xp} XP</div>
+              <div style={{ color: "#fbbf24", fontWeight: 800, fontSize: 22 }}>+{xp} XP</div>
               <div style={{ color: "#475569", fontSize: 11 }}>Experience</div>
             </div>
           </div>
+
+          {/* Round-by-round breakdown */}
+          <div style={{ marginBottom: 20, textAlign: "left" }}>
+            <h3 style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 2, margin: "0 0 10px" }}>ROUND BREAKDOWN</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {roundScores.map((r, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "7px 14px",
+                  border: `1px solid ${r.winner === "player" ? "rgba(167,139,250,0.2)" : r.winner === "bot" ? "rgba(248,113,113,0.2)" : r.winner === "tie" ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.05)"}`,
+                }}>
+                  <span style={{ color: "#475569", fontSize: 12, width: 60 }}>Round {i + 1}</span>
+                  <span style={{ color: "#a78bfa", fontWeight: 800, fontSize: 14, width: 24, textAlign: "center" }}>{r.playerPts}</span>
+                  <span style={{ color: r.winner === "timeout" ? "#f59e0b" : r.winner === "nobody" ? "#475569" : r.winner === "tie" ? "#fbbf24" : r.winner === "player" ? "#34d399" : "#f87171", fontSize: 11, flex: 1, textAlign: "center" }}>
+                    {r.winner === "player" ? "✓ You won" : r.winner === "bot" ? "✗ They won" : r.winner === "tie" ? "⚡ Tie" : r.winner === "timeout" ? "⏱ Timeout" : "— No points"}
+                  </span>
+                  <span style={{ color: "#f87171", fontWeight: 800, fontSize: 14, width: 24, textAlign: "center" }}>{r.botPts}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button style={S.primaryBtn} onClick={() => onComplete({ xp, eloChange: change, won: playerWon })}>Continue</button>
             <button style={S.ghostBtn} onClick={onExit}>Menu</button>
@@ -1289,12 +1502,11 @@ function PvPGame({ onExit, onComplete, profile }) {
         <div style={{ textAlign: "center", padding: 32 }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>⚔️</div>
           <h2 style={{ color: "#fff", fontSize: 26, fontWeight: 900, margin: "0 0 4px" }}>1v1 Battle</h2>
-          <p style={{ color: "#64748b", marginBottom: 20 }}>Flags · {ROUNDS} rounds</p>
-          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 24, marginBottom: 24 }}>
-            <p style={{ color: "#475569", fontSize: 12, marginBottom: 16 }}>Matched opponent (near your ELO)</p>
-            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+          <p style={{ color: "#64748b", marginBottom: 20 }}>Flags · {ROUNDS} rounds · {Q_TIME}s per question</p>
+          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 24, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", marginBottom: 16 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 6 }}>😎</div>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>{profile.avatar || "😎"}</div>
                 <div style={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 4 }}>{profile.username}</div>
                 <EloDisplay elo={profile.elo} />
               </div>
@@ -1303,6 +1515,18 @@ function PvPGame({ onExit, onComplete, profile }) {
                 <div style={{ fontSize: 40, marginBottom: 6 }}>{preview.avatar}</div>
                 <div style={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 4 }}>{preview.name}</div>
                 <EloDisplay elo={preview.elo} />
+              </div>
+            </div>
+            {/* Scoring rules */}
+            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", textAlign: "left" }}>
+              <p style={{ color: "#475569", fontSize: 10, fontWeight: 800, letterSpacing: 1, margin: "0 0 6px" }}>SCORING</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {[["🥇 First correct answer", "+2 pts"], ["🥈 Second correct answer", "+1 pt"], ["✗ Wrong answer", "+0 pts"], ["⏱ No answer in time", "+0 pts"]].map(([rule, pts]) => (
+                  <div key={rule} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <span style={{ color: "#94a3b8" }}>{rule}</span>
+                    <span style={{ color: "#fbbf24", fontWeight: 700 }}>{pts}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1319,7 +1543,7 @@ function PvPGame({ onExit, onComplete, profile }) {
   if (phase === "countdown") {
     return (
       <div style={{ ...S.gameWrap, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontSize: 120, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{countdown || "GO!"}</div>
+        <div style={{ fontSize: 120, fontWeight: 900, color: "#fff", lineHeight: 1, animation: "popIn 0.3s ease" }}>{countdown || "GO!"}</div>
         <p style={{ color: "#475569", marginTop: 16 }}>Get ready…</p>
       </div>
     );
@@ -1328,21 +1552,28 @@ function PvPGame({ onExit, onComplete, profile }) {
   if (!bot || !questions[current]) return null;
   const q = questions[current];
 
+  // ── Timer ring ──
+  const timerPct  = timeLeft / Q_TIME;
+  const timerColor = timeLeft <= 2 ? "#ef4444" : timeLeft <= 4 ? "#f59e0b" : "#34d399";
+  const ringSize  = 56;
+  const radius    = (ringSize - 6) / 2;
+  const circ      = 2 * Math.PI * radius;
+
   // ── Playing ──
   return (
     <div style={S.gameWrap}>
       {/* Scoreboard header */}
-      <div style={{ display: "flex", alignItems: "center", padding: "16px 0 8px", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "14px 0 6px", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 24 }}>😎</span>
+          <span style={{ fontSize: 24 }}>{profile.avatar || "😎"}</span>
           <div>
             <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: 13 }}>{profile.username}</div>
             <div style={{ color: "#475569", fontSize: 10 }}>You</div>
           </div>
         </div>
-        <div style={{ background: "rgba(255,255,255,0.07)", borderRadius: 14, padding: "6px 20px", display: "flex", gap: 14, alignItems: "center" }}>
+        <div style={{ background: "rgba(255,255,255,0.07)", borderRadius: 14, padding: "6px 18px", display: "flex", gap: 14, alignItems: "center" }}>
           <span style={{ color: "#a78bfa", fontWeight: 900, fontSize: 26 }}>{playerScore}</span>
-          <span style={{ color: "#334155", fontSize: 20 }}>—</span>
+          <span style={{ color: "#334155", fontSize: 18 }}>—</span>
           <span style={{ color: "#f87171", fontWeight: 900, fontSize: 26 }}>{botScore}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end" }}>
@@ -1354,39 +1585,78 @@ function PvPGame({ onExit, onComplete, profile }) {
         </div>
       </div>
 
-      <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 4, margin: "4px 0 6px" }}>
-        <div style={{ height: "100%", width: `${(current / ROUNDS) * 100}%`, background: "linear-gradient(90deg,#ef4444,#ec4899)", borderRadius: 4, transition: "width 0.3s" }} />
+      {/* Round progress dots */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "6px 0 14px" }}>
+        {questions.map((_, i) => {
+          const rs = roundScores[i];
+          const bg = !rs ? (i === current ? "#6366f1" : "rgba(255,255,255,0.08)")
+            : rs.winner === "player" ? "#a78bfa" : rs.winner === "bot" ? "#f87171" : rs.winner === "tie" ? "#fbbf24" : "#334155";
+          return <div key={i} style={{ width: i === current ? 18 : 8, height: 8, borderRadius: 4, background: bg, transition: "all 0.3s" }} />;
+        })}
       </div>
-      <p style={{ color: "#334155", fontSize: 11, textAlign: "center", marginBottom: 16 }}>Round {current + 1} of {ROUNDS}</p>
 
       <div key={animKey} style={{ animation: "slideIn 0.2s ease", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <FlagImg code={q.code} size={230} />
+        <FlagImg code={q.code} size={200} />
 
-        {botSelected && !selected && phase === "roundResult" && (
-          <div style={{ background: "rgba(248,113,113,0.12)", border: "1px solid #ef444444", borderRadius: 10, padding: "6px 16px", color: "#f87171", fontSize: 13 }}>
-            {bot.name} answered!
+        {/* Timer ring + status row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* SVG countdown ring */}
+          <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={5} />
+            <circle cx={ringSize/2} cy={ringSize/2} r={radius} fill="none" stroke={timerColor}
+              strokeWidth={5} strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - timerPct)}
+              style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }} />
+            <text x={ringSize/2} y={ringSize/2} textAnchor="middle" dominantBaseline="central"
+              fill={timerColor} fontSize={16} fontWeight="900"
+              style={{ transform: "rotate(90deg)", transformOrigin: "center" }}>{timeLeft}</text>
+          </svg>
+
+          {/* Lock-in indicators */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: playerPick ? "#a78bfa" : "rgba(255,255,255,0.1)", transition: "background 0.2s" }} />
+              <span style={{ color: playerPick ? "#a78bfa" : "#334155", fontSize: 12, fontWeight: 600 }}>
+                {playerPick ? (phase === "roundResult" ? (playerPick === q.code ? "✓ Correct" : "✗ Wrong") : "Locked in") : "Waiting…"}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: (botLocked || botPick) ? "#f87171" : "rgba(255,255,255,0.1)", transition: "background 0.2s" }} />
+              <span style={{ color: (botLocked || botPick) ? "#f87171" : "#334155", fontSize: 12, fontWeight: 600 }}>
+                {(botLocked || (botPick && phase === "roundResult")) ? (phase === "roundResult" ? (botPick === q.code ? "✓ Correct" : "✗ Wrong") : `${bot.name} locked in!`) : "Thinking…"}
+              </span>
+            </div>
           </div>
-        )}
-        {roundWinner && (
-          <div style={{
-            background: roundWinner === "player" ? "rgba(52,211,153,0.18)" : roundWinner === "tie" ? "rgba(251,191,36,0.15)" : "rgba(248,113,113,0.18)",
-            borderRadius: 10, padding: "6px 18px",
-            color: roundWinner === "player" ? "#34d399" : roundWinner === "tie" ? "#fbbf24" : "#f87171",
-            fontWeight: 700, fontSize: 14,
-          }}>
-            {roundWinner === "player" ? "✓ You win this round!" : roundWinner === "tie" ? "⚡ Tie round!" : "✗ Opponent wins round"}
-          </div>
-        )}
+        </div>
+
+        {/* Round result banner */}
+        {roundResult && (() => {
+          const { winner, playerPts, botPts } = roundResult;
+          const bg    = winner === "player" ? "rgba(52,211,153,0.15)" : winner === "bot" ? "rgba(248,113,113,0.15)" : winner === "tie" ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.05)";
+          const color = winner === "player" ? "#34d399" : winner === "bot" ? "#f87171" : winner === "tie" ? "#fbbf24" : "#475569";
+          const label = winner === "player" ? "🥇 You answered first!" : winner === "bot" ? `🥇 ${bot.name} was faster!` : winner === "tie" ? "⚡ Simultaneous!" : winner === "timeout" ? "⏱ Time's up — no points" : "✗ Neither correct";
+          return (
+            <div style={{ background: bg, border: `1px solid ${color}44`, borderRadius: 12, padding: "10px 20px", textAlign: "center" }}>
+              <div style={{ color, fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{label}</div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 20, fontSize: 12, color: "#94a3b8" }}>
+                <span>You <strong style={{ color: "#a78bfa" }}>+{playerPts}</strong></span>
+                <span>{bot.name} <strong style={{ color: "#f87171" }}>+{botPts}</strong></span>
+              </div>
+            </div>
+          );
+        })()}
 
         <div style={S.grid2}>
           {options.map(opt => {
             let extra = {};
-            if (selected || roundWinner) {
+            if (playerPick || roundResult) {
               if (opt.code === q.code) extra = { background: "rgba(52,211,153,0.2)", borderColor: "#34d399" };
-              else if (opt.code === selected && selected !== q.code) extra = { background: "rgba(239,68,68,0.2)", borderColor: "#ef4444" };
+              else if (opt.code === playerPick && playerPick !== q.code) extra = { background: "rgba(239,68,68,0.2)", borderColor: "#ef4444" };
             }
             return (
-              <button key={opt.code} onClick={() => choose(opt)} style={{ ...S.option, ...extra, justifyContent: "center" }}>
+              <button key={opt.code} onClick={() => choose(opt)}
+                disabled={!!playerPick || phase === "roundResult"}
+                style={{ ...S.option, ...extra, justifyContent: "center", opacity: playerPick && opt.code !== q.code && opt.code !== playerPick ? 0.4 : 1 }}>
                 <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 14 }}>{opt.name}</span>
               </button>
             );
@@ -1396,7 +1666,6 @@ function PvPGame({ onExit, onComplete, profile }) {
     </div>
   );
 }
-
 
 // ─── CAPITALS MC GAME ─────────────────────────────────────────────────────────
 function CapitalsMCGame({ onExit, onComplete }) {
@@ -2052,14 +2321,22 @@ function ProfilePage({ profile, onLogout, onReset, onUpdateProfile }) {
         </div>
 
         {/* XP progress bar */}
-        {nextXP && (
-          <div style={{ maxWidth: 280, margin: "0 auto" }}>
-            <div style={{ height: 7, background: "rgba(255,255,255,0.07)", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
-              <div style={{ height: "100%", borderRadius: 4, transition: "width 0.6s", background: `linear-gradient(90deg,${xpRank.color},${nextXP.color})`, width: `${Math.min(100, ((profile.xp - xpRank.minXP) / (nextXP.minXP - xpRank.minXP)) * 100)}%` }} />
+        {nextXP && (() => {
+          const pct = Math.min(100, Math.max(0, ((profile.xp - xpRank.minXP) / (nextXP.minXP - xpRank.minXP)) * 100));
+          const remaining = Math.max(0, nextXP.minXP - profile.xp);
+          return (
+            <div style={{ width: "100%", maxWidth: 280, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#475569", marginBottom: 4 }}>
+                <span>{xpRank.name}</span>
+                <span>{nextXP.name}</span>
+              </div>
+              <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.07)", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
+                <div style={{ height: "100%", borderRadius: 4, transition: "width 0.6s", background: `linear-gradient(90deg,${xpRank.color},${nextXP.color})`, width: `${pct}%` }} />
+              </div>
+              <p style={{ color: "#475569", fontSize: 11, margin: 0 }}>{remaining.toLocaleString()} XP to {nextXP.name} · {Math.round(pct)}% there</p>
             </div>
-            <p style={{ color: "#334155", fontSize: 11, margin: 0 }}>{(nextXP.minXP - profile.xp).toLocaleString()} XP to {nextXP.name}</p>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── ELO tier progress ── */}
@@ -2333,6 +2610,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [gameMode, setGameMode] = useState(null);
   const [tab, setTab] = useState("home");
+  const [previousTab, setPreviousTab] = useState("home");
   const [notification, setNotification] = useState(null);
 
   // Load profile synchronously from localStorage on mount
@@ -2360,6 +2638,7 @@ export default function App() {
       showNotif("Coming soon! 🚧", "#f59e0b");
       return;
     }
+    setPreviousTab(tab);
     setGameMode(mode);
     setScreen("game");
   };
@@ -2438,10 +2717,10 @@ export default function App() {
 
     setScreen("home");
     setGameMode(null);
-    setTab("home");
+    setTab(previousTab);
   };
 
-  const exitGame = () => { setScreen("home"); setGameMode(null); setTab("home"); };
+  const exitGame = () => { setScreen("home"); setGameMode(null); setTab(previousTab); };
 
   const handleLogout = () => {
     // Logout keeps the saved profile but returns to the login screen
@@ -2473,6 +2752,7 @@ export default function App() {
   // ── Game screens ──
   if (screen === "game") {
     const props = { onExit: exitGame, onComplete: handleGameComplete, profile };
+    if (gameMode === "flag-pick")     return <FlagPickerGame {...props} />;
     if (gameMode === "solo-mc")       return <SoloMCGame {...props} />;
     if (gameMode === "solo-type")     return <SoloTypingGame {...props} />;
     if (gameMode === "pvp")           return <PvPGame {...props} />;
@@ -2599,7 +2879,7 @@ export default function App() {
             <GameModePicker onStart={startGame} />
           </div>
         )}
-        {tab === "learn"       && <LearnPage profile={profile} onGameComplete={handleGameComplete} />}
+        {tab === "learn"       && <LearnPage profile={profile} onGameComplete={(r) => { setPreviousTab("learn"); handleGameComplete(r); }} />}
         {tab === "leaderboard" && <LeaderboardPage profile={profile} />}
         {tab === "profile"     && <ProfilePage profile={profile} onLogout={handleLogout} onReset={handleReset} onUpdateProfile={(p) => persistProfile(p)} />}
       </div>
